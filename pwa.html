@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#080810">
+<title>SafeOut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;--bg2:#0f0f1a;--bg3:#141420;--bg4:#1a1a28;
+  --burg:#7D2545;--burg-dim:rgba(125,37,69,0.12);--burg-border:rgba(125,37,69,0.28);
+  --blue:#7b8fff;--blue-dim:rgba(123,143,255,0.10);--blue-border:rgba(123,143,255,0.22);
+  --teal:#4ecfaa;--teal-dim:rgba(78,207,170,0.09);--teal-border:rgba(78,207,170,0.20);
+  --red:#ff6b6b;--red-dim:rgba(255,107,107,0.10);--red-border:rgba(255,107,107,0.22);
+  --gray-dim:rgba(255,255,255,0.04);--gray-border:rgba(255,255,255,0.08);
+  --text:rgba(255,255,255,0.92);--text2:rgba(255,255,255,0.45);--text3:rgba(255,255,255,0.20);
+  --r:18px;--r-sm:12px;
+}
+html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 100%,rgba(125,37,69,0.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+.shell{position:relative;z-index:1;width:min(100vw,390px);height:min(100vh,820px);margin:auto;background:var(--bg2);border-radius:clamp(0px,4vw,40px);border:1.5px solid rgba(255,255,255,0.07);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 40px 80px rgba(0,0,0,0.5)}
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden;position:relative}
+.screen.active{display:flex}
+.main-header{padding:16px 22px 14px;flex-shrink:0}
+.logo-row{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.logo-img{height:38px;width:auto;display:block}
+.logo-sep{width:1px;height:20px;background:rgba(255,255,255,0.1)}
+.logo-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.18em;color:var(--text3);text-transform:uppercase}
+.main-title{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;color:var(--text);line-height:1.15;margin-bottom:4px}
+.main-sub{font-size:12px;color:var(--text2);font-weight:300}
+.btn-list{flex:1;padding:0 14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.btn-list::-webkit-scrollbar{display:none}
+.action-btn{width:100%;background:none;border:none;cursor:pointer;padding:0;border-radius:var(--r);transition:transform .12s ease;text-align:left;-webkit-tap-highlight-color:transparent}
+.action-btn:active{transform:scale(.975)}
+.btn-inner{border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:13px;border:1px solid;transition:border-color .15s,background .15s}
+.btn-inner.blue{background:var(--blue-dim);border-color:var(--blue-border)}
+.btn-inner.teal{background:var(--teal-dim);border-color:var(--teal-border)}
+.btn-inner.red{background:var(--red-dim);border-color:var(--red-border)}
+.btn-inner.gray{background:var(--gray-dim);border-color:var(--gray-border)}
+.action-btn:hover .btn-inner.blue{border-color:rgba(123,143,255,.38)}
+.action-btn:hover .btn-inner.teal{border-color:rgba(78,207,170,.36)}
+.action-btn:hover .btn-inner.red{border-color:rgba(255,107,107,.38)}
+.action-btn:hover .btn-inner.gray{border-color:rgba(255,255,255,.14)}
+.btn-icon{width:42px;height:42px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-icon svg{width:20px;height:20px;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.btn-icon.blue{background:rgba(123,143,255,.14)}
+.btn-icon.teal{background:rgba(78,207,170,.12)}
+.btn-icon.red{background:rgba(255,107,107,.12)}
+.btn-icon.gray{background:rgba(255,255,255,.06)}
+.btn-body{flex:1}
+.btn-label{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.03em;display:block;margin-bottom:2px}
+.btn-label.blue{color:#a0aaff}.btn-label.teal{color:#4ecfaa}.btn-label.red{color:#ff8080}.btn-label.gray{color:rgba(255,255,255,.48)}
+.btn-desc{font-size:11px;font-weight:300;line-height:1.4}
+.btn-desc.blue{color:rgba(160,170,255,.55)}.btn-desc.teal{color:rgba(78,207,170,.50)}.btn-desc.red{color:rgba(255,128,128,.50)}.btn-desc.gray{color:rgba(255,255,255,.25)}
+.btn-arrow{font-size:18px;color:rgba(255,255,255,.16);flex-shrink:0}
+.divider{display:flex;align-items:center;gap:10px;padding:2px 4px}
+.divider-line{flex:1;height:1px;background:rgba(255,255,255,.05)}
+.divider-text{font-size:9px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase}
+.footer-status{padding:12px 22px 18px;display:flex;align-items:center;justify-content:center;gap:8px;flex-shrink:0}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.65)}}
+.footer-text{font-size:10px;color:var(--text3);letter-spacing:.06em}
+#screen-confirm{align-items:center;justify-content:center;padding:32px 28px;text-align:center}
+.confirm-icon-wrap{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:1.5px solid}
+.confirm-icon-wrap svg{width:34px;height:34px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.confirm-icon-wrap.blue{background:var(--blue-dim);border-color:var(--blue-border)}
+.confirm-icon-wrap.teal{background:var(--teal-dim);border-color:var(--teal-border)}
+.confirm-icon-wrap.red{background:var(--red-dim);border-color:var(--red-border)}
+.confirm-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:10px;line-height:1.2}
+.confirm-sub{font-size:13px;font-weight:300;color:var(--text2);line-height:1.65;margin-bottom:28px;max-width:260px}
+.confirm-meta{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,.07);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:24px;text-align:left}
+.meta-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.meta-row+.meta-row{border-top:1px solid rgba(255,255,255,.04)}
+.meta-key{font-size:11px;color:var(--text3)}
+.meta-val{font-size:11px;color:var(--text2);font-weight:500}
+.meta-val.live{color:var(--teal);display:flex;align-items:center;gap:5px}
+.meta-val.live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block;animation:pulse 1.8s ease infinite}
+.back-btn{background:none;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 24px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text2);cursor:pointer;transition:border-color .15s,color .15s}
+.back-btn:hover{border-color:rgba(255,255,255,.25);color:var(--text)}
+.sheet-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:20;display:none;align-items:flex-end}
+.sheet-overlay.open{display:flex;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;background:#12121e;border-top:1px solid rgba(255,255,255,.08);border-radius:24px 24px 0 0;padding-bottom:32px;animation:slideUp .25s cubic-bezier(.25,.46,.45,.94)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:36px;height:4px;background:rgba(255,255,255,.11);border-radius:2px;margin:14px auto 16px}
+.sheet-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;padding:0 20px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.contact-list{padding:8px 0}
+.contact-item{display:flex;align-items:center;gap:14px;padding:12px 20px;cursor:pointer;background:none;border:none;width:100%;text-align:left;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.contact-item:hover{background:rgba(255,255,255,.03)}
+.contact-item:active{background:rgba(255,255,255,.06)}
+.avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;flex-shrink:0}
+.av-a{background:rgba(255,130,160,.13);color:#ff82a0}.av-b{background:rgba(123,143,255,.13);color:#7b8fff}.av-c{background:rgba(255,190,80,.13);color:#ffbe50}.av-d{background:rgba(78,207,170,.13);color:#4ecfaa}
+.contact-info{flex:1}
+.contact-name{font-size:14px;font-weight:500;color:var(--text);display:block;margin-bottom:2px}
+.contact-role{font-size:11px;color:var(--text2);font-weight:300}
+.send-btn{width:34px;height:34px;border-radius:50%;background:var(--teal-dim);border:1px solid var(--teal-border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send-btn svg{width:14px;height:14px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#screen-info{overflow:hidden}
+.info-header{padding:14px 20px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
+.icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);flex-shrink:0;transition:background .12s;font-size:15px;font-family:'DM Sans',sans-serif}
+.icon-btn:hover{background:rgba(255,255,255,.09)}
+.info-title-wrap{flex:1}
+.info-h{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.info-sub{font-size:10px;color:var(--text3);letter-spacing:.06em}
+.info-scroll{flex:1;overflow-y:auto;padding:14px 18px 20px}
+.info-scroll::-webkit-scrollbar{display:none}
+.info-section{margin-bottom:20px}
+.section-label{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:9px;padding-left:2px}
+.who-card{background:var(--bg3);border:1px solid rgba(255,255,255,.07);border-radius:var(--r-sm);padding:16px}
+.who-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+.who-p{font-size:12px;font-weight:300;color:var(--text2);line-height:1.7;margin-bottom:8px}
+.who-p:last-child{margin-bottom:0}
+.btn-card{background:var(--bg3);border:1px solid rgba(255,255,255,.07);border-radius:var(--r-sm);overflow:hidden;margin-bottom:7px}
+.btn-card-head{padding:11px 14px 9px;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.04)}
+.btn-card-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-card-ico svg{width:14px;height:14px;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.btn-card-ico.blue{background:var(--blue-dim)}.btn-card-ico.teal{background:var(--teal-dim)}.btn-card-ico.red{background:var(--red-dim)}
+.btn-card-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;letter-spacing:.03em}
+.btn-card-name.blue{color:#a0aaff}.btn-card-name.teal{color:var(--teal)}.btn-card-name.red{color:var(--red)}
+.btn-card-body{padding:10px 14px 11px;font-size:11px;font-weight:300;color:var(--text2);line-height:1.65}
+.hotline-list{display:flex;flex-direction:column;gap:6px}
+.hotline-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid rgba(255,255,255,.07);border-radius:var(--r-sm);padding:11px 14px}
+.hotline-name{font-size:12px;font-weight:500;color:var(--text)}
+.hotline-note{font-size:10px;color:var(--text3);margin-top:1px}
+.hotline-num{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--teal)}
+.privacy-box{background:rgba(123,143,255,.05);border:1px solid rgba(123,143,255,.13);border-radius:var(--r-sm);padding:12px 14px;display:flex;gap:10px}
+.privacy-ico svg{width:14px;height:14px;stroke:#a0aaff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-top:1px}
+.privacy-txt{font-size:11px;font-weight:300;color:rgba(160,170,255,.6);line-height:1.6}
+#screen-disguise{align-items:center;justify-content:center;background:var(--bg)}
+.disguise-inner{text-align:center;padding:40px 32px}
+.disguise-icon{font-size:40px;margin-bottom:16px}
+.disguise-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:rgba(255,255,255,.3);margin-bottom:8px}
+.disguise-sub{font-size:12px;color:rgba(255,255,255,.15);font-weight:300;line-height:1.6;margin-bottom:32px}
+.disguise-back{font-size:10px;color:rgba(255,255,255,.1);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase}
+
+.consent-scroll{flex:1;overflow-y:auto;padding:24px 22px}
+.consent-scroll::-webkit-scrollbar{display:none}
+.consent-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.2}
+.consent-sub{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px;font-weight:300}
+.consent-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.consent-item-ico{width:34px;height:34px;border-radius:10px;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.consent-item-ico svg{width:17px;height:17px;stroke:var(--red);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.consent-item-txt{flex:1}
+.consent-item-t{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.consent-item-d{font-size:11px;color:var(--text2);font-weight:300;line-height:1.5}
+.consent-actions{padding:18px 22px 26px;display:flex;flex-direction:column;gap:10px}
+.consent-accept{width:100%;background:var(--red);border:none;border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;transition:opacity .15s}
+.consent-accept:active{opacity:.85}
+.consent-decline{width:100%;background:none;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text2);cursor:pointer}
+.lang-toggle{position:absolute;top:14px;right:16px;z-index:50;display:flex;gap:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:3px}
+.lang-btn{background:none;border:none;color:var(--text3);font-size:11px;font-weight:600;padding:4px 10px;border-radius:16px;cursor:pointer;font-family:inherit}
+.lang-btn.active{background:var(--red);color:#fff}
+.consent-note{font-size:10px;color:var(--text3);text-align:center;line-height:1.5;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="lang-toggle">
+    <button class="lang-btn" id="langRO" onclick="setLang('ro')">RO</button>
+    <button class="lang-btn active" id="langEN" onclick="setLang('en')">EN</button>
+  </div>
+  <div class="screen active" id="screen-main">
+    <div class="main-header">
+      <div class="logo-row">
+        <img class="logo-img" src="data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKIHdpZHRoPSIxNTg0LjAwMDAwMHB0IiBoZWlnaHQ9IjEzMDguMDAwMDAwcHQiIHZpZXdCb3g9IjAgMCAxNTg0LjAwMDAwMCAxMzA4LjAwMDAwMCIKIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIG1lZXQiPgo8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwLjAwMDAwMCwxMzA4LjAwMDAwMCkgc2NhbGUoMC4xMDAwMDAsLTAuMTAwMDAwKSIKZmlsbD0iIzZkMzEzYSIgc3Ryb2tlPSJub25lIj4KPHBhdGggZD0iTTkzODAgMTI2MDQgYy04IC0yIC05MyAtOCAtMTg5IC0xNCAtMTkyIC0xMSAtMjg4IC0yNCAtMzcxIC00NyAtMzMKLTEwIC05MCAtMTUgLTE0NSAtMTUgLTEzMiAyIC0yODYgLTIxIC0zMjkgLTQ3IC0yMiAtMTQgLTc4IC0zMCAtMTQzIC00MSAtNjAKLTExIC0xNjIgLTM4IC0yMjggLTYwIC0xMjIgLTQyIC0xOTkgLTY1IC0yNDcgLTc1IC0xNCAtMyAtMzkgLTE2IC01NSAtMjggLTE1Ci0xMyAtNjMgLTMzIC0xMDcgLTQ1IC00OSAtMTMgLTg0IC0yOSAtOTIgLTQxIC04IC0xMSAtMzEgLTI1IC01MiAtMzIgLTIwIC03Ci01MyAtMjMgLTcyIC0zNSAtMjAgLTEzIC01MCAtMjYgLTY3IC0zMCAtMTggLTMgLTM5IC0xNSAtNDkgLTI1IC05IC0xMCAtNDYKLTI4IC04MyAtNDAgLTQ0IC0xNCAtNzYgLTMyIC05OCAtNTUgLTQ4IC01MSAtMTExIC00MCAtMTk2IDMzIC0yMCAxOCAtNDYgMzMKLTU3IDMzIC0xMCAwIC0yOSAxMSAtNDIgMjQgLTI4IDMwIC0xNzAgMTA2IC0xOTYgMTA2IC0xMSAwIC0zMCA4IC00MyAxOCAtMzMKMjYgLTE3MyA3NCAtMTkyIDY2IC05IC0zIC0yOCAzIC00MiAxNCAtMTQgMTEgLTQ1IDIzIC02OCAyNyAtMjMgNCAtNTUgMTQgLTcwCjIyIC0xNiA4IC01MCAxOCAtNzUgMjMgLTI2IDUgLTY5IDEzIC05NyAxOSAtODkgMTcgLTIxOSAzMSAtMjk2IDMyIC00MCAwCi0xMjggNiAtMTk0IDEzIC0xMjUgMTQgLTUzMCAwIC02OTIgLTI0IC0zNyAtNSAtODkgLTEwIC0xMTUgLTEwIC0yNiAwIC02MiAtNgotODAgLTE0IC0zNSAtMTQgLTg0IC0yOCAtMTgzIC01MSAtOTggLTIzIC0xOTYgLTUyIC0yNTUgLTc1IC0zMCAtMTIgLTY2IC0yNQotODAgLTMwIC0xNCAtNSAtNjMgLTI0IC0xMTAgLTQ0IC00NiAtMjAgLTkyIC0zNiAtMTAyIC0zNiAtMTAgMCAtNTMgLTIyIC05NgotNTAgLTQyIC0yNyAtODQgLTUwIC05MyAtNTAgLTkgMCAtMzAgLTEyIC00NiAtMjcgLTE3IC0xNiAtNDUgLTM3IC02MiAtNDgKLTEyNiAtODMgLTIwMCAtMTM3IC0yMTUgLTE1OSAtOSAtMTQgLTI0IC0yNiAtMzMgLTI2IC0yMCAwIC04NCAtMzkgLTEwMSAtNjIKLTcgLTEwIC0yOCAtMjYgLTQ1IC0zNSAtMzMgLTE3IC0yMzkgLTIwNCAtMjk2IC0yNjggLTEwIC0xMSAtNTQgLTYxIC05OSAtMTEyCi0xMDcgLTEyMCAtMTgyIC0yMTQgLTE4MiAtMjI3IDAgLTcgLTE4IC0zNSAtNDAgLTY1IC0yMiAtMjkgLTQwIC01OCAtNDAgLTYzCjAgLTYgLTE5IC0zNCAtNDMgLTYyIC00MCAtNDggLTE0NiAtMjQ5IC0xODIgLTM0NiAtOSAtMjUgLTIzIC01OCAtMzIgLTc1IC0xOQotMzggLTYxIC0xNjggLTY5IC0yMTUgLTMgLTE5IC0xNCAtNjEgLTI1IC05MyAtMTAgLTMxIC0xOSAtNzAgLTE5IC04NSAwIC0xNgotNiAtNTEgLTE0IC03OCAtOCAtMjcgLTE3IC04NyAtMjAgLTEzNCAtMyAtNDcgLTExIC0xMzcgLTE2IC0yMDEgLTYgLTc2IC02Ci0xNDUgMCAtMjAwIDYgLTQ2IDE0IC0xMjcgMTkgLTE3OSAxMSAtMTIwIDI4IC0yMTEgNTIgLTI3OCAxMSAtMzAgMTkgLTY2IDE5Ci04MCAxIC0xNSA3IC0zOCAxNSAtNTIgOCAtMTQgMTQgLTM1IDE1IC00NyAwIC0yOCAzNyAtMTI2IDEwMCAtMjYzIDI2IC01OCA1MAotMTE3IDUzIC0xMzEgNCAtMTUgMTggLTM0IDMyIC00MyAxNSAtMTAgMjUgLTI2IDI1IC00MCAwIC0xMyAxNCAtNDAgMzAgLTYxCjE3IC0yMSAzMCAtNDIgMzAgLTQ3IDAgLTEwIDcyIC0xMjAgMTIzIC0xODkgMTkgLTI1IDQyIC02MCA1MSAtNzcgOCAtMTYgMjkKLTQxIDQ1IC01NCAxNiAtMTIgMzYgLTM4IDQ1IC01NSA5IC0xOCAyMSAtMzMgMjUgLTMzIDUgMCAyNCAtMjQgNDEgLTUyIDM1Ci01NyA2MSAtODkgMTczIC0yMTEgNjYgLTcyIDEwMSAtMTA5IDE0NiAtMTUwIDkgLTkgMzYgLTQxIDYxIC03MSAyNCAtMzEgNTIKLTU5IDYyIC02MiAxMCAtMyAyNSAtMTkgMzQgLTM1IDggLTE3IDMxIC0zNyA1MCAtNDUgMjIgLTkgMzkgLTI2IDQ4IC00OCA4Ci0xOSAyMyAtMzcgMzQgLTQwIDIxIC03IDEzMiAtMTIyIDEzMiAtMTM3IDAgLTUgMTcgLTE3IDM3IC0yNiAyNCAtMTIgMzkgLTI3CjQzIC00MyAzIC0xNCAxOSAtMzQgMzUgLTQ1IDE3IC0xMSA1NSAtNDYgODUgLTc5IDMwIC0zMiA2NiAtNjQgODAgLTcxIDE0IC03CjMxIC0yNCAzOCAtMzcgNyAtMTIgMzIgLTM2IDU1IC01MyA2NSAtNDUgMTg0IC0xNTUgMTk5IC0xODMgMTcgLTMzIDE5NSAtMTkxCjIzNCAtMjA3IDE2IC04IDM1IC0yNSA0MiAtMzkgNiAtMTQgMTYgLTI2IDIxIC0yNiAxMyAwIDgxIC02NyA4MSAtNzkgMCAtNiAyNwotMjkgNjAgLTUxIDM0IC0yMyA5MyAtNjkgMTMzIC0xMDMgNDAgLTM1IDg0IC03MCA5OSAtODAgMTQgLTkgMjggLTI3IDMwIC0zOQoyIC0xMyAxMSAtMjQgMjAgLTI2IDEwIC0yIDUyIC0zNyA5NCAtNzggNDIgLTQxIDgxIC03NCA4NyAtNzQgNiAwIDI3IC0xNyA0NwotMzcgNTQgLTU3IDE4MCAtMTcwIDIyNSAtMjA0IDIyIC0xNyA3NCAtNjggMTE1IC0xMTQgNDEgLTQ1IDEwNSAtMTA5IDE0MgotMTQxIDM3IC0zMiA3MCAtNjUgNzMgLTczIDMgLTkgNzIgLTgyIDE1NCAtMTYzIDgyIC04MSAxNTMgLTE1MyAxNTggLTE2MSA0Ci03IDIzIC0yMyA0MSAtMzYgMTggLTEyIDM5IC0zOCA0NiAtNTYgOCAtMTggMjggLTQxIDQ1IC01MSAxNyAtMTAgMzEgLTIxIDMxCi0yNCAwIC00IDggLTE1IDE4IC0yNiA5IC0xMCAyNSAtMzAgMzQgLTQ0IDkgLTE0IDQ4IC02MSA4OCAtMTA1IDQwIC00NCA3OQotOTMgODcgLTEwOSA4IC0xNiAzNSAtNTMgNTkgLTgzIDI0IC0yOSA1MyAtNzAgNjQgLTkxIDExIC0yMCAzNiAtNTcgNTUgLTgyCjQwIC01MyAxNDUgLTI0MiAxNDUgLTI2MiAwIC04IDE0IC0zNiAzMSAtNjMgMTcgLTI2IDM5IC03MCA1MCAtOTggMTEgLTI3IDI2Ci01OSAzNCAtNzEgOCAtMTEgMTUgLTMxIDE1IC00NCAwIC0xMyA1IC0zMyAxMiAtNDUgNiAtMTIgMTUgLTQyIDE5IC02NyA0IC0yNQoxNyAtODUgMjggLTEzNSA0NSAtMTk1IDQ5IC02MTQgNyAtNzMyIC03IC0yMSAtMTcgLTU4IC0yMSAtODEgLTQgLTI0IC0xOCAtNzAKLTMxIC0xMDMgLTEzIC0zMiAtMjQgLTY4IC0yNCAtNzkgMCAtMjIgLTQ0IC0xMTUgLTU5IC0xMjQgLTUgLTMgLTEyIC0yMiAtMTUKLTQyIC0yMCAtMTA1IC0zMTggLTU0MCAtNDAxIC01ODQgLTEzIC03IC0yOSAtMjUgLTM1IC00MSAtNyAtMTYgLTIxIC0zMSAtMzEKLTM0IC0xMCAtNCAtMzEgLTIyIC00NyAtNDAgLTYzIC03NyAtMTM5IC0xMjUgLTE5OSAtMTI1IC03MiAwIC0xMTMgLTE5IC0xNTgKLTczIC0yMSAtMjUgLTUyIC01MiAtNjkgLTU4IC0xNyAtNyAtNTUgLTMxIC04NSAtNTMgLTI5IC0yMyAtNjcgLTUwIC04NSAtNjEKLTE3IC0xMSAtMzkgLTMwIC00OSAtNDIgLTEyIC0xNSAtMjkgLTIzIC00OSAtMjMgLTMyIDAgLTczIC0yMiAtMTQ2IC03NyAtMjQKLTE4IC00OSAtMzMgLTU3IC0zMyAtNyAwIC00MSAtMjcgLTc1IC01OSAtNTEgLTQ5IC03NCAtNjMgLTEzMyAtODEgLTQwIC0xMgotMTE3IC0zNyAtMTcyIC01NSAtMTMwIC00MyAtMzQ5IC05NSAtNDAwIC05NSAtMjIgMCAtNzQgLTggLTExNSAtMTcgLTk0IC0yMQotNjg4IC0yNiAtNzU1IC02IC03NiAyMiAtMTk2IDQzIC0yNDggNDMgLTI5IDAgLTYyIDYgLTczIDE0IC0xMSA4IC0zOCAxOCAtNjAKMjEgLTIxIDQgLTkwIDMyIC0xNTIgNjEgLTYyIDMwIC0xMjMgNTQgLTEzNiA1NCAtMTIgMCAtMzMgMTIgLTQ3IDI2IC0xMyAxNAotNTMgNDIgLTg5IDYxIC0zNiAyMCAtNzYgNDYgLTkwIDU4IC0xNCAxMiAtNDcgMzQgLTc1IDUwIC0yNyAxNSAtNjkgNDQgLTkyCjY0IC0yMyAyMCAtNjAgNTAgLTgyIDY2IC0yMiAxNyAtNjEgNTYgLTg3IDg4IC0yNiAzMSAtNTEgNTcgLTU1IDU3IC00IDAgLTExCjEwIC0xNCAyMSAtNCAxMiAtMzcgNTIgLTc0IDg5IC0zNiAzNyAtNzUgODMgLTg2IDEwMSAtMTI4IDIxNiAtMTU5IDI2NSAtMTgyCjI4NyAtMTQgMTQgLTIzIDM1IC0yMyA1NSAwIDE4IC03IDQxIC0xNSA1MSAtOCAxMSAtMTUgMzAgLTE1IDQzIDAgMTIgLTkgNDIKLTE5IDY1IC0yNyA2MSAtNjEgMTgyIC03MiAyNTggLTYgMzYgLTIwIDkyIC0zMSAxMjUgLTI5IDg1IC0zMyA1MTIgLTUgNTg4IDkKMjYgMTcgNjUgMTcgODYgMCAyMSA3IDU4IDE1IDgxIDggMjMgMTIgNTMgOSA2NSAtMyAxMyA0IDUyIDE1IDg3IDExIDM1IDI1IDgyCjMxIDEwNCA1IDIzIDE3IDQ3IDI1IDU0IDggNyAxNSAyNyAxNSA0NCAwIDE4IDcgNDEgMTUgNTIgOCAxMCAxNSAzMyAxNSA1MCAwCjE5IDEyIDQ2IDMwIDY5IDE2IDIxIDMwIDQyIDMwIDQ4IDAgNiA5IDIwIDE5IDMxIDExIDEyIDM0IDUwIDUzIDg2IDE4IDM2IDQzCjc5IDU2IDk3IDEyIDE3IDIyIDQxIDIyIDUzIDAgMTIgMTQgMzUgMzAgNTAgMTcgMTYgMzggNDYgNDYgNjcgOSAyMSAzMyA1NyA1Mwo3OSAyMCAyMyA0NyA1OCA2MSA3OCAxNCAyMCAzOSA0NSA1NyA1NiAxNyAxMiA0MSAzNSA1MiA1MyA0NCA2OCA3MiAxMDQgMTI2CjE2MiAzMSAzMyA1OSA3MyA2MiA4OCA0IDIxIDEzIDMwIDM1IDM0IDE2IDMgNDEgMTggNTYgMzIgMTUgMTQgMzkgMzIgNTQgMzgKMTUgNyAzNyAyNiA1MCA0MyAxMyAxOCAzNiAzOSA1MiA0NyAxNSA4IDY1IDUwIDExMCA5MyA5MSA4OCAxNzcgMTU3IDIyMSAxODAKNDEgMjEgMjkgMzUgLTI5IDM1IC0zNyAtMSAtNTMgLTYgLTY2IC0yMiAtOSAtMTIgLTQ3IC0zOCAtODQgLTU3IC0zNyAtMTkgLTgxCi00NiAtOTkgLTYwIC0xOCAtMTQgLTUzIC0zNCAtODAgLTQ1IC0yNiAtMTEgLTQ3IC0yNSAtNDcgLTMwIDAgLTYgLTMyIC0yOQotNzEgLTUyIC0zOSAtMjMgLTczIC00OSAtNzYgLTU2IC0zIC04IC0yNyAtMjUgLTU0IC0zOCAtMjYgLTE0IC02MCAtNDAgLTc1Ci01OSAtMTUgLTE5IC01OSAtNTYgLTk3IC04MyAtNzMgLTUwIC04MSAtNTcgLTE1OSAtMTQxIC0yNiAtMjggLTYwIC01OCAtNzUKLTY2IC0yOCAtMTQgLTY1IC01MSAtMjU3IC0yNTEgLTU4IC02MCAtMTIwIC0xMjUgLTEzOCAtMTQ0IC0xOCAtMTkgLTM4IC00NgotNDQgLTYwIC02IC0xNCAtMjkgLTQ2IC01MSAtNzEgLTIyIC0yNSAtNDggLTYwIC01NyAtNzcgLTkgLTE4IC0yMSAtMzMgLTI3Ci0zMyAtNSAwIC0xOCAtMjAgLTI5IC00NSAtMTEgLTI1IC0yNCAtNDUgLTMwIC00NSAtNSAwIC0xMCAtMTEgLTEwIC0yNCAwIC0xNQotNyAtMjcgLTE4IC0zMCAtMjAgLTcgLTExMiAtMTM0IC0xMTIgLTE1NSAwIC03IC0yNSAtNTQgLTU1IC0xMDUgLTMwIC01MCAtNTUKLTEwMSAtNTUgLTExMiAwIC0xMSAtNyAtMjkgLTE1IC00MCAtOCAtMTIgLTIzIC00MyAtMzQgLTcwIC0xMSAtMjcgLTM2IC04NwotNTUgLTEzNCAtMjAgLTQ2IC0zNiAtOTYgLTM2IC0xMTAgMCAtMTQgLTE0IC04MyAtMzEgLTE1NSAtNDggLTIxMiAtNTIgLTI0NgotNDYgLTQzMCAxMCAtMjgxIDU1IC00NTEgMTc3IC02NzUgMzcgLTY5IDc1IC0xNDIgODMgLTE2MyA5IC0yMCAyMSAtMzcgMjYKLTM3IDE5IDAgODEgLTYyIDgxIC04MSAwIC0xMCAxMSAtMjQgMjUgLTMyIDE0IC03IDQzIC0zNyA2MyAtNjcgMjEgLTMwIDYxCi03MCA4OSAtOTAgMjggLTE5IDYxIC00OCA3MyAtNjMgMTIgLTE1IDI3IC0yNyAzNCAtMjcgNyAwIDI1IC0xMCAzOSAtMjIgNTUKLTQ3IDg1IC02NyAxMjUgLTgzIDIyIC05IDQ4IC0yOCA1NyAtNDEgOCAtMTMgMjAgLTI0IDI2IC0yNCA2IDAgMjQgLTExIDQxCi0yNSAxNiAtMTQgMzggLTI1IDQ4IC0yNSAxMCAwIDY3IC0yNiAxMjcgLTU4IDU5IC0zMiAxMTcgLTYxIDEyOCAtNjUgNTAgLTE1CjIxOSAtNzggMjQzIC05MSAxNSAtOCA2MSAtMTkgMTAyIC0yNSA0MSAtNyA4OSAtMjAgMTA2IC0zMCAxNyAtMTAgNTcgLTIxIDkwCi0yNSAzMiAtNCA4NSAtMTYgMTE2IC0yNiAzMSAtMTEgMTEwIC0yNCAxNzUgLTMwIDE2MCAtMTUgMjU1IC0yOCAzMzMgLTQ1IDgxCi0xOSA4ODAgLTIzIDk3MCAtNiA3MiAxNSAxNzAgMjcgMzA4IDQxIDExNCAxMSAyMDEgMjYgMjM3IDQwIDExIDUgNDMgMTIgNzAKMTUgMjggNCA3MCAxMyA5NSAyMSA2NSAyMiAxNzQgNDQgMjY1IDU0IDc5IDggODEgOCAxNDkgLTI2IDM5IC0xOSA4MCAtMzQgOTIKLTM0IDEyIDAgMzUgLTEwIDUxIC0yMyA0MiAtMzQgNzkgLTQ3IDEzNiAtNDcgMzQgMCA2MyAtNyA4NSAtMjAgMTcgLTExIDYzCi0yNyAxMDIgLTM2IDM4IC04IDgxIC0yNCA5NSAtMzUgMTQgLTEyIDUyIC0yNCA4OCAtMjkgMzUgLTUgMTA3IC0yNSAxNjIgLTQ1Cjc5IC0yOCAxMTMgLTM1IDE3MiAtMzUgNDYgMCA4NSAtNiAxMDMgLTE1IDc3IC00MCAxODUgLTYzIDMyNSAtNjkgMTM4IC03IDE2NwotMTIgMjU1IC00NyAyOSAtMTEgODkgLTIwIDE2MCAtMjUgNjMgLTQgMTI3IC0xMyAxNDIgLTIwIDMxIC0xNiAyMDM4IC0yMQoyMDM4IC01IDAgMTAgNjggMjAgMjIwIDMxIDkxIDYgMTI0IDEzIDE1MyAzMCAyOSAxNyA2MyAyNCAxNTUgMzEgMTg0IDE1IDI2MQoyNyAzMjEgNTQgMzkgMTcgODYgMjcgMTU4IDMzIDc1IDcgMTE2IDE2IDE1NSAzNSAyOSAxNCA4MCAzMCAxMTMgMzcgMzMgNyA2NQoxNiA3MCAyMCAxOSAxNiA5OSAzOCAxNjAgNDUgMzIgNCA4MiAxOCAxMTAgMzIgMjcgMTQgNzkgMzIgMTE1IDM5IDM1IDggODUgMjgKMTEwIDQ0IDI1IDE2IDY0IDMzIDg4IDM4IDI0IDYgNjAgMjIgODAgMzUgMjAgMTQgNTUgMjkgNzcgMzMgMjIgMyA0NyAxMiA1NQoyMCA4IDcgNTEgMjcgOTUgNDUgNDQgMTcgOTYgNDIgMTE1IDU1IDE5IDEzIDQ2IDI0IDU5IDI0IDEzIDAgNDggMTYgNzcgMzUgMzAKMjAgNjkgNDIgODcgNTAgMTkgOCAzOSAyMSA0NiAyOSA4IDkgMzIgMjEgNTQgMjcgMjMgNiA2NSAyNiA5MyA0NSAyOCAxOSA1NQozNCA2MSAzNCA1IDAgNDcgMjUgOTQgNTYgNDYgMzAgMTA0IDY3IDEyOSA4MCAxMDkgNjAgMTQwIDgxIDE2NCAxMTEgMTUgMTcgNTkKNDkgOTkgNzEgMzkgMjIgODMgNTIgOTcgNjcgMTQgMTUgNDMgMzYgNjUgNDYgMjIgMTAgNTEgMjkgNjUgNDMgMTMgMTUgMzAgMjYKMzcgMjYgOCAwIDU3IDQxIDEwOSA5MCA1MSA1MCA5OCA5MCAxMDIgOTAgNSAwIDE0IDExIDIxIDI0IDcgMTMgMjcgMzAgNDQgMzkKMzYgMTcgMTk0IDE1OCAyMTcgMTkzIDggMTMgNDIgNDUgNzUgNzIgMzMgMjggNjcgNjEgNzQgNzUgOCAxNCAyNyAzMSA0NCAzOAoxNyA3IDM1IDI1IDQzIDQ1IDcgMTcgMjggNDEgNDcgNTMgNDYgMjggMTc3IDE3MSAxNzcgMTkyIDAgMTAgMTMgMjggMjkgNDEgNDAKMzIgMTQ1IDE1NiAxNjUgMTk1IDkgMTggMjUgMzcgMzYgNDMgMTEgNiAyNyAyNSAzNiA0MyAxMCAxOCAyNSAzOCAzNCA0NCAxMCA3CjMwIDMzIDQ0IDU4IDE1IDI1IDMxIDQ1IDM2IDQ1IDUgMCAxOSAxOSAzMSA0MyAxMiAyMyAzNSA1NyA1MCA3NSAxNiAxOCAyOSAzOQoyOSA0NyAwIDggMTMgMjkgMjkgNDcgMTUgMTggMzkgNTMgNTEgNzggMTMgMjUgMzMgNTggNDYgNzMgMTMgMTYgMjQgMzQgMjQgNDAKMCA3IDE1IDM0IDM0IDYyIDcxIDEwNyAxMDYgMTYyIDEwNiAxNzEgMCA1IDE4IDQ1IDM5IDg5IDIxIDQ0IDQ2IDk2IDU2IDExNSA5CjE5IDIzIDQ3IDMxIDYyIDggMTYgMTggNDcgMjIgNzAgNiAzMyAxNCA0NiAzNSA1NiAyMyAxMSAyNyAxOSAyNyA1NiAwIDMxIDEyCjY3IDQwIDEyNCAyMiA0NCA0MCA4OSA0MCAxMDAgMCAxMSAxNiA1MCAzNSA4NiAyOCA1MyAzNSA3NyAzNSAxMjMgMCA0NCA2IDY4CjMwIDEwOSAyMCAzNyAzMiA3NSAzOSAxMzAgNiA1MSAxNyA4NyAzMCAxMDUgMzIgNDMgNDAgNzIgNTEgMTc1IDYgNTggMjMgMTMzCjQ2IDIwMSAyNyA4MCAzNSAxMTggMzEgMTQ4IC0xMiA4MyAyNiAzNzQgNTUgNDI5IDE3IDMyIDIzIDI1NSAyMiA4NDEgLTIgNTc5Ci0xMiA3NDUgLTU0IDgzNyAtMTMgMjggLTIwIDY2IC0yMCAxMDkgMCAxMzUgLTIxIDMzNCAtNDEgMzg5IC0yNCA2NiAtMzQgMTE0Ci00OSAyNDAgLTcgNTcgLTE4IDEwNiAtMjkgMTI1IC0xMSAxNiAtMjcgNjYgLTM2IDExMCAtOSA0NCAtMjggOTYgLTQxIDExNgotMTcgMjUgLTI0IDQ5IC0yNCA4NSAwIDUyIC0yOSAxNDUgLTU0IDE3MyAtOCA5IC0xOSA1MCAtMjUgOTEgLTcgNDEgLTIxIDkzCi0zMSAxMTYgLTExIDIyIC0yMCA0OCAtMjAgNTcgMCA5IC0yMCA1NiAtNDUgMTA0IC0yNCA0OSAtNDggMTA4IC01NCAxMzEgLTUKMjQgLTE4IDU0IC0yOSA2NSAtMjcgMzEgLTQyIDYyIC00MiA5MCAwIDEzIC0xMSAzNCAtMjQgNDYgLTEzIDEyIC0yNiAzOSAtMzAKNjAgLTMgMjEgLTE3IDUzIC0zMSA3MiAtMTMgMTkgLTQwIDY2IC01OCAxMDQgLTE5IDM5IC00MSA3NiAtNTAgODMgLTkgOCAtMjEKMzAgLTI4IDUwIC02IDIwIC0yMCA0NiAtMzAgNTcgLTEwIDExIC0yNSAzOCAtMzQgNTkgLTkgMjIgLTI3IDQ4IC00MSA1OCAtMTMKMTEgLTI4IDM3IC0zNCA1OSAtNiAyMiAtMTggNDMgLTI2IDQ2IC04IDMgLTI5IDM3IC00NiA3NCAtMTcgMzggLTM0IDY5IC0zOQo2OSAtNCAwIC0zMCAzMCAtNTYgNjcgLTI2IDM3IC02MiA4MSAtNzkgOTggLTE3IDE3IC0zNCA0MyAtMzggNTggLTcgMjkgLTY3CjEwMSAtMTQ5IDE4MiAtNjIgNjAgLTEzMSAxNDAgLTE1NiAxODEgLTExIDE2IC0zMSA0MCAtNDYgNTQgLTE1IDE0IC0zOSAzNwotNTMgNTMgLTEyOSAxMzQgLTI4MiAyNzkgLTM4NyAzNjcgLTY5IDU3IC0xMjggMTExIC0xMzEgMTIwIC0zIDggLTMwIDM1IC02MQo2MCAtMzEgMjUgLTcxIDYwIC04OSA3OCAtMTggMTkgLTU0IDQ1IC04MSA1OCAtNTQgMjcgLTEzMSA4MCAtMTcyIDExNiAtMTQgMTQKLTQ1IDMzIC02OSA0MyAtMjQgMTAgLTQ5IDI3IC01NiAzNyAtNyAxMCAtMjkgMjQgLTQ5IDMzIC0xOSA4IC00MiAyNCAtNDkgMzQKLTggMTEgLTM5IDI5IC03MCA0MSAtMzEgMTEgLTYyIDI3IC02OCAzNSAtNyA5IC00MSAyOSAtNzUgNDUgLTM0IDE2IC03NCAzOQotODkgNTEgLTE1IDEyIC00NiAzMSAtNjkgNDMgLTIzIDEyIC01MSAyNyAtNjIgMzMgLTYwIDMzIC0xNTcgNzQgLTIwMSA4MyAtMjgKNiAtNjUgMjEgLTg0IDMzIC02MiA0MSAtNzUgNDcgLTEwMSA0NyAtMTQgMCAtNDQgMTIgLTY1IDI3IC0yNSAxNiAtNTcgMjggLTg5CjMxIC0yNyAzIC02MiAxMyAtNzcgMjMgLTE0IDExIC0zMSAxOSAtMzggMTkgLTYgMCAtMjQgNyAtMzkgMTQgLTE1IDggLTcwIDIyCi0xMjEgMzAgLTY2IDExIC0xMDMgMjIgLTEzMCA0MSAtMjIgMTUgLTYxIDMwIC05MiAzNCAtMjkgNSAtNzUgMTggLTEwMSAyOQotMzEgMTQgLTg3IDI1IC0xNjAgMzIgLTg2IDggLTExOSAxNSAtMTQxIDMxIC0zMyAyNSAtMTAzIDM1IC0zMDYgNDQgLTE1MyA3Ci0yOTIgMjYgLTM3NSA1MSAtNTkgMTggLTg0MyA0MiAtOTA1IDI4eiBtLTM5MDAgLTM4MiBjMTE5IC0zMyAxNDEgLTQxIDE1MwotNTEgNyAtNSA0MSAtMTggNzcgLTI5IDM2IC0xMSA5OCAtMzcgMTM4IC01NiA0MCAtMjAgNzcgLTM2IDgxIC0zNiA1IDAgMjMKLTExIDM5IC0yNSAxNiAtMTQgNTYgLTM5IDg4IC01NSA2OSAtMzYgMTI2IC03NiAxMzcgLTk1IDQgLTggMjkgLTI3IDU1IC00Mgo1NSAtMzIgMjMyIC0yMDggMjMyIC0yMzEgMCAtMjQgLTUwIC05MSAtNzkgLTEwNyAtNTAgLTI3IC0xNjEgLTE0MyAtMTYxIC0xNjkKMCAtMTcgLTEyIC0zMyAtMzggLTUzIC0yMiAtMTUgLTU4IC01MCAtODEgLTc4IC0yNCAtMjcgLTUzIC02MCAtNjYgLTcyIC0xMwotMTIgLTI2IC00MCAtMzAgLTYyIC00IC0yNyAtMTMgLTQyIC0yNiAtNDYgLTEwIC00IC0zMiAtMjUgLTQ4IC00OSAtMTYgLTIzCi0zNiAtNDggLTQ1IC01NSAtOCAtNyAtMjIgLTM2IC0zMiAtNjQgLTkgLTI5IC0yNCAtNjEgLTMzIC03MiAtMzMgLTM4IC0xMDEKLTE1MSAtMTEyIC0xODUgLTcgLTE5IC0xOCAtNDIgLTI1IC01MCAtNyAtOCAtMjIgLTM3IC0zMyAtNjQgLTEyIC0yNyAtMzIgLTYyCi00NiAtNzggLTEzIC0xNiAtMjcgLTQ1IC0zMSAtNjYgLTQgLTIwIC0yOSAtODAgLTU1IC0xMzMgLTI3IC01MyAtNDkgLTEwMgotNDkgLTEwOCAwIC03IC04IC0yNCAtMTkgLTM3IC0xMiAtMTYgLTIxIC00OSAtMjUgLTEwMyAtNSAtNTcgLTE1IC05NSAtMzIKLTEyOCAtMjIgLTQxIC0yNyAtNjYgLTM0IC0xODggLTUgLTg5IC0xNiAtMTY5IC0zMCAtMjIwIC0zNSAtMTI3IC0zOCAtMTUwCi01MSAtMzQwIC0yMCAtMzE3IC02IC02MTAgMzMgLTY3MyAyNiAtNDIgNDYgLTUyIDEwMyAtNTIgODYgMCAxMjQgNDYgMTA2IDEyOAotNSAyNiAtMTUgNzIgLTIxIDEwMiAtMTYgNzYgLTcgMzc0IDEzIDQ3MCA5IDQxIDIyIDExNCAyOCAxNjIgNyA1OSAxNyA5NCAzMAoxMDkgMTAgMTIgMTkgMzQgMTkgNDkgMCAxNSA3IDQ5IDE1IDc2IDggMjcgMTUgNjMgMTUgODAgMCAxNyA2IDM3IDE0IDQzIDE3CjE1IDQxIDgwIDU2IDE1OCA3IDM1IDE5IDY4IDI2IDc0IDggNiAyMSAzNSAyOSA2MyA4IDI4IDMxIDcxIDUwIDk1IDI1IDMxIDM3CjU4IDQxIDkzIDQgMzIgMTYgNjEgMzIgODAgMTQgMTcgMzYgNTEgNDkgNzcgNjEgMTE5IDczIDE0MSA4MyAxNDEgNSAwIDE3IDE1CjI2IDMzIDMzIDYzIDE0NyAyMjggMjAxIDI5MCAxMzAgMTQ4IDE5OSAyMTkgMjI0IDIzMyAxNSA3IDM2IDI5IDQ4IDQ3IDExIDE4CjMyIDM5IDQ1IDQ3IDE0IDcgMzggMzEgNTMgNTMgMTUgMjIgNDUgNTEgNjcgNjYgMjEgMTQgNDUgMzAgNTIgMzYgMzkgMjkgMTA4Ci03NSAxNDUgLTIxOSA0MiAtMTYyIDQ2IC0xODEgNTggLTI5MSA1IC01NSAxNSAtMTQ1IDIxIC0yMDAgMTUgLTE0NCAxMyAtMzU5Ci01IC00NTIgLTggLTQzIC0xNSAtOTYgLTE1IC0xMTggMCAtMjIgLTcgLTYwIC0xNiAtODUgLTkgLTI1IC0yNSAtNzYgLTM1Ci0xMTUgLTE3IC02MSAtNDcgLTE0MSAtOTUgLTI1MyAtOCAtMTggLTE0IC0zOSAtMTQgLTQ2IDAgLTE0IC00NSAtMTE3IC03MwotMTY2IC0xNSAtMjcgLTMzIC02NyAtNjMgLTE0MCAtMTkgLTQ2IC04NyAtMTU0IC0xMDMgLTE2NSAtNiAtMyAtMjQgLTMxIC00MgotNjMgLTQwIC02OCAtMTA2IC0xNTcgLTE5NiAtMjYxIC00OCAtNTUgLTUzIC0xNDEgLTkgLTE0MSA0MiAwIDMyNiAyNzcgNDA2CjM5NyAxNCAyMCA0MyA1NSA2NSA3OCA0NCA0NSA5MiAxMDYgMTE1IDE0NyA4IDE1IDM2IDU4IDYxIDk2IDI2IDM4IDUyIDgwIDU5CjkzIDcgMTMgMjkgNDIgNDkgNjQgMjEgMjIgNTkgODcgODYgMTQ1IDI3IDU4IDUyIDExMCA1NyAxMTYgMzAgNDEgNTggMTEwIDU4CjE0NyAwIDMxIDcgNDggMjggNzIgMTcgMTggMzkgNjQgNTYgMTIwIDI4IDg3IDQwIDEyMiA2NiAxOTUgNzEgMjAxIDkyIDM0NSA5Nwo2NzMgNSAzMzggLTE3IDQ0MSAtMTQ4IDY4OCAtMTAgMjEgLTE3IDQ0IC0xMyA1MiAxMCAyNiAxMTMgODkgMTU5IDk4IDQwIDcKMTA2IDQxIDIxMyAxMDggMTggMTEgNzYgMjkgMTI4IDQwIDY0IDEyIDEwMyAyNiAxMTggNDAgMTQgMTQgMzUgMjEgNjAgMjEgMjAKMCA1MCA3IDY1IDE1IDMzIDE3IDkwIDMyIDI1MSA2NiA2MCAxMyA5MSAyNiAxMDIgNDMgOCAxMyAxMjMgMjUgMjQ5IDI1IDgzIDEKMTAzIDUgMTQzIDI2IDMxIDE2IDYzIDI1IDk0IDI1IDI2IDAgNjMgNSA4MiAxMCA1MCAxNSA5MjkgMTYgOTk5IDEgMjkgLTYgNzQKLTExIDEwMCAtMTEgMjcgMCA2NyAtMTAgOTYgLTI0IDQ0IC0yMCA3MyAtMjQgMjIwIC0zMSAxNDUgLTYgMTc2IC0xMCAyMjEgLTMwCjI5IC0xMyA3OSAtMjkgMTExIC0zNSA2NyAtMTMgMTEwIC0yNiAxNzMgLTUwIDI1IC0xMCA2OCAtMjEgOTUgLTI1IDI4IC0zIDc4Ci0yMiAxMTIgLTQxIDQ3IC0yNiA3MyAtMzQgMTExIC0zNCAzOSAwIDU3IC02IDgxIC0yNSA0NSAtMzggMjIwIC0xMTQgMjYzCi0xMTUgMTAgMCAzMyAtMTQgNTIgLTMwIDE5IC0xNyA1OSAtMzkgODkgLTQ5IDYwIC0yMSAxMDIgLTQ3IDE1OCAtOTkgMjIgLTIwCjU2IC0zOCA5MCAtNDcgMzAgLTggNTUgLTE5IDU3IC0yNCAyIC02IDM0IC0zMSA3MiAtNTYgMzggLTI1IDgwIC01OSA5MyAtNzQKMTMgLTE2IDM3IC0zNiA1MyAtNDQgMTYgLTggNDAgLTI3IDU0IC00MiAxNCAtMTUgNDYgLTM3IDcxIC01MCAyNSAtMTMgNTEgLTMxCjU5IC00MCA3IC05IDI2IC0yMyA0MSAtMzEgMTUgLTggNDQgLTM5IDY0IC02OSAyMCAtMzAgNTEgLTY2IDY4IC04MCA2NCAtNTIKMTU2IC0xNDAgMTU3IC0xNTAgMCAtNSAyMSAtMzAgNDggLTU1IDI2IC0yNSA3NiAtNzggMTEyIC0xMTggMzYgLTQwIDc3IC04Ngo5MiAtMTAyIDE0IC0xNiAyOSAtMzkgMzMgLTUxIDkgLTI4IDY5IC0xMDYgMTAxIC0xMzEgMTMgLTExIDI0IC0yNSAyNCAtMzIgMAotNyAyMCAtNDEgNDUgLTc2IDI1IC0zNSA0NSAtNzAgNDUgLTc3IDAgLTcgMTQgLTI1IDMwIC00MCAxNyAtMTQgMzAgLTM1IDMwCi00NSAwIC0xMSAxNSAtMzMgMzQgLTUxIDM4IC0zNiA1NiAtNjYgNTYgLTk0IDAgLTExIDE0IC0zMiAzMCAtNDggMTcgLTE2IDMwCi0zOCAzMCAtNTAgMCAtMTEgMjAgLTUyIDQ1IC04OSAyNyAtNDEgNDUgLTgwIDQ1IC05OCAwIC0xNyA5IC0zNiAyNCAtNDkgMTQKLTEyIDMyIC00MCA0MSAtNjMgOSAtMjIgMjUgLTUwIDM1IC02MSAyMSAtMjIgNTAgLTk2IDUwIC0xMjYgMCAtMTEgMTEgLTM2IDI1Ci01NyAxMyAtMjAgMzEgLTU3IDQwIC04MiA5IC0yNCAyMCAtNDcgMjYgLTUxIDYgLTMgMTcgLTMxIDI0IC02MCAxOCAtNzEgNTAKLTE1OSA3NCAtMjAwIDExIC0yMCAyMiAtNjUgMjYgLTEwNyA2IC01NyAxMiAtNzkgMzEgLTk5IDEzIC0xNCAyNiAtNDIgMjkgLTYyCjMgLTIwIDE4IC03OSAzNSAtMTMxIDE2IC01MiAzMiAtMTE3IDM1IC0xNDMgNCAtMjYgMTkgLTgwIDM1IC0xMjAgMjQgLTYwIDMxCi05NyA0MCAtMjIyIDkgLTExNCAxOCAtMTcxIDQwIC0yNDAgMjQgLTc3IDMxIC0xMjMgNDUgLTMxNSA4IC0xMjQgMjIgLTI2MyAzMAotMzEwIDM0IC0yMDMgMTYgLTEyNTIgLTI1IC0xNDM0IC01IC0yMyAtMTQgLTEwNiAtMjAgLTE4NiAtMTMgLTE3MSAtMTcgLTE4OAotNDEgLTIxNiAtMTYgLTE3IC0yMSAtNDYgLTI4IC0xODcgLTggLTE1MSAtMTIgLTE2OSAtMzUgLTIwOSAtMTUgLTI2IC0zMCAtNzQKLTM3IC0xMTggLTYgLTQxIC0yMiAtMTA2IC0zNCAtMTQ1IC0xMyAtMzggLTI3IC05MiAtMzEgLTEyMCAtOSAtNjYgLTQzIC0xNzUKLTU0IC0xNzUgLTExIDAgLTQ3IC0xMTAgLTU2IC0xNzAgLTQgLTI1IC0xMyAtNTIgLTIxIC02MSAtNyAtOSAtMjIgLTQ2IC0zMwotODMgLTEwIC0zNiAtMjggLTc4IC0zOSAtOTMgLTEyIC0xNCAtMjQgLTQ0IC0yOCAtNjUgLTMgLTIyIC0xNiAtNTIgLTI5IC02NwotMTMgLTE1IC0zMiAtNjEgLTQzIC0xMDEgLTExIC00MCAtMjcgLTgwIC0zNSAtODkgLTcgLTkgLTE3IC0yNyAtMjEgLTQxIC0xMgotMzkgLTQ2IC0xMDIgLTcxIC0xMzMgLTEzIC0xNiAtMjQgLTM5IC0yNCAtNTIgMCAtMTMgLTEzIC0zNyAtMjggLTUyIC0xNiAtMTYKLTM2IC01NCAtNDcgLTg4IC0xMCAtMzMgLTI3IC02OCAtMzcgLTc3IC0yNiAtMjQgLTYyIC03MyAtOTIgLTEyOCAtMTMgLTI1Ci0zMyAtNTAgLTQ0IC01NyAtMTEgLTcgLTIzIC0yNSAtMjcgLTQxIC0zIC0xNiAtMjIgLTQ3IC00MSAtNjggLTE5IC0yMiAtNDEKLTUwIC00OSAtNjQgLTIwIC0zNyAtODIgLTEyOCAtOTkgLTE0NiAtOSAtOCAtMTYgLTIwIC0xNiAtMjYgMCAtNiAtMzUgLTQ1Ci03OSAtODcgLTQzIC00MiAtODUgLTg5IC05NCAtMTA2IC0xNCAtMjcgLTExNSAtMTUwIC0xNDkgLTE4MiAtNDAgLTM3IC0xMDgKLTEwNSAtMTM5IC0xMzkgLTE5IC0yMSAtNzcgLTc3IC0xMjkgLTEyNCAtNTEgLTQ3IC0xMTggLTEwOSAtMTQ5IC0xMzggLTMxCi0yOSAtNzcgLTY1IC0xMDIgLTc5IC0yNiAtMTQgLTUyIC0zNSAtNTkgLTQ2IC02IC0xMiAtMzIgLTM4IC01NyAtNTcgLTI0IC0xOQotNTQgLTQ0IC02NiAtNTYgLTEyIC0xMiAtNDQgLTMxIC03MSAtNDMgLTI3IC0xMSAtNjYgLTM3IC04NyAtNTYgLTIyIC0xOSAtNDYKLTM1IC01NCAtMzUgLTggMCAtMjIgLTExIC0zMSAtMjUgLTkgLTEzIC0yNiAtMjcgLTM3IC0zMSAtMTIgLTQgLTM1IC0xNyAtNTAKLTMxIC0xNiAtMTMgLTU0IC0zNSAtODQgLTUwIC0zMCAtMTUgLTcwIC00NCAtODggLTY1IC0xNyAtMjEgLTQxIC0zOCAtNTEgLTM4Ci0yMSAwIC0xNDggLTYyIC0xNzQgLTg1IC04IC03IC0zMyAtMTYgLTU1IC0yMCAtMjIgLTQgLTYzIC0yMyAtOTIgLTQyIC0yOAotMjAgLTczIC0zOSAtOTggLTQ0IC0yOSAtNSAtNjAgLTIwIC04MSAtMzkgLTE5IC0xNiAtNDQgLTMwIC01NiAtMzAgLTEyIDAKLTQ1IC0xMyAtNzUgLTMwIC0zNCAtMTkgLTY3IC0zMCAtOTIgLTMwIC00OSAwIC04NSAtMTMgLTEyMiAtNDQgLTIwIC0xNyAtNDYKLTI1IC05NiAtMzEgLTQwIC00IC0xMDEgLTIxIC0xNDggLTQwIC00NCAtMTkgLTEwOCAtMzkgLTE0MyAtNDYgLTM1IC03IC03MAotMTggLTc3IC0yNiAtMjMgLTIzIC01OCAtMzEgLTE3MCAtMzggLTExMSAtNyAtMTMyIC0xMSAtMjM5IC00OCAtMzggLTEzIC04OQotMjEgLTE0MCAtMjMgLTExNSAtMiAtMzE0IC0yNCAtMzQ1IC0zNyAtOTQgLTM5IC0xMjI0IC0zMyAtMTMzMSA4IC0yMCA4IC05OAoxNiAtMTgwIDIwIC0xNDAgNSAtMjcyIDIzIC0yOTkgMzkgLTMxIDE5IC0xNzMgNDYgLTI0NiA0NiAtNjcgMCAtODYgNCAtMTIwCjI1IC0yMiAxMyAtNDkgMjUgLTU5IDI1IC0xMSAwIC0zMyA0IC01MCA5IC05NSAyOCAtMjE0IDY0IC0yMzQgNzIgLTEzIDUgLTM2CjkgLTUzIDkgLTMyIDAgLTc4IDIwIC0xMTggNTEgLTE0IDEyIC00MCAxOSAtNjUgMTkgLTQwIDAgLTg2IDIyIC04NiA0MCAwIDYKMTUgMTYgMzMgMjUgMTcgOCA1MiAzMCA3NyA1MCAyNSAxOSA4MiA1NSAxMjYgODAgNDUgMjUgODcgNTIgOTQgNjAgNiA4IDM1IDI5CjYzIDQ2IDI5IDE4IDY4IDQ3IDg5IDYzIDQwIDM1IDc5IDY0IDExNCA4NiAyMyAxNSA1NSA0MiAxNjQgMTM4IDMzIDI4IDY3IDUyCjc2IDUyIDE5IDAgMzM1IDMxOSAzNzQgMzc3IDE0IDIwIDQ1IDU4IDcwIDgzIDI1IDI1IDU5IDY2IDc1IDkwIDE3IDI1IDM4IDUxCjQ3IDU4IDEwIDcgMjYgMzIgMzYgNTUgMTEgMjQgNDMgNjcgNzEgOTUgMzAgMzAgNTggNzAgNjcgOTQgOCAyNCAyNyA2MCA0MSA4MQoxNCAyMSA0MCA2NCA1NyA5NiAxNyAzMiA1MCA5NCA3NCAxMzYgNDUgODMgNzggMTY1IDkyIDIzMCA0IDIyIDE5IDc0IDMzIDExNQo2MyAxOTAgNzQgMjM0IDEwOSA0NDUgMzcgMjI3IDI5IDYyOCAtMTggODM4IC05IDQwIC0yMCA5MSAtMjUgMTE1IC00IDIzIC0xMwo1MCAtMTggNjAgLTUgMTAgLTE0IDQwIC0xOSA2NyAtMTAgNDkgLTE5IDc3IC01MCAxNjAgLTM3IDk3IC0xNDEgMzE2IC0xNzkKMzc1IC0xNiAyNSAtNTEgODIgLTc3IDEyOCAtMjUgNDUgLTYyIDEwMyAtODEgMTI4IC0xOSAyNSAtMzUgNTIgLTM1IDU5IDAgOAotOSAyMCAtMTkgMjcgLTExIDggLTM2IDM4IC01NiA2NiAtMjAgMjkgLTU3IDc1IC04MyAxMDEgLTI2IDI3IC02MCA2NSAtNzcgODUKLTE2IDIwIC0zOSA0NiAtNTEgNTkgLTEyIDEyIC0yNCAzMSAtMjggNDMgLTMgMTIgLTE4IDI2IC0zMSAzMiAtMTQgNiAtMjUgMTYKLTI1IDIxIDAgMTUgLTExMCAxMzUgLTEzMSAxNDMgLTEwIDQgLTI5IDI0IC00MiA0NSAtMTQgMjEgLTk4IDEwOCAtMTg4IDE5MwotODkgODUgLTE3OSAxNzEgLTE5OCAxOTEgLTIwIDIwIC00NiAzOSAtNTggNDMgLTEyIDQgLTMwIDIyIC00MSAzOSAtMTAgMTgKLTQ0IDUwIC03NSA3MSAtMzEgMjAgLTYxIDQ2IC02NyA1NiAtNiAxMSAtMjggMjkgLTUwIDQwIC0yMiAxMSAtODggNzAgLTE0OAoxMzAgLTU5IDYxIC0xMTQgMTEwIC0xMjAgMTEwIC03IDAgLTQzIDMwIC04MSA2OCAtNzggNzUgLTE1MyAxNDAgLTE5MiAxNjYKLTE1IDkgLTM5IDM1IC01NCA1NiAtMTUgMjIgLTQ3IDUxIC03MSA2NSAtMjQgMTQgLTQ0IDMwIC00NCAzNSAwIDUgLTEzIDE2Ci0zMCAyNSAtMTYgOCAtNDMgMzUgLTYwIDYwIC0xNyAyNSAtNDIgNDggLTU2IDUxIC0xMyA0IC02NiA0NyAtMTE3IDk2IC01MSA0OQotMTA4IDk4IC0xMjggMTA4IC0xOSAxMCAtNDIgMjYgLTQ5IDM1IC04IDkgLTcwIDY0IC0xMzkgMTIyIC03MCA1OCAtMTQ4IDEyOAotMTc2IDE1NSAtNzQgNzIgLTk3IDkyIC0xMjggMTEyIC0xNSA5IC0zMyAyOCAtMzkgNDEgLTYgMTQgLTI2IDI5IC00NSAzNiAtMTgKNiAtMzggMTkgLTQ0IDMwIC01IDExIC0zNSA0MyAtNjYgNzIgLTMxIDI5IC04NSA4MSAtMTIwIDExNyAtMzUgMzYgLTg4IDkwCi0xMTkgMTIwIC0zMCAzMCAtNjUgNjUgLTc3IDc4IC0xMiAxMiAtMzMgMzIgLTQ2IDQ1IC01NSA1MyAtMTY2IDE4MSAtMTk3IDIyOQotMTMgMjAgLTMyIDM5IC00MyA0MyAtMTEgMyAtMjMgMTUgLTI2IDI2IC00IDExIC0yMyAzOSAtNDMgNjMgLTIwIDI0IC01OSA3NAotODcgMTExIC0yNyAzNiAtNjUgODQgLTgyIDEwNyAtMTggMjIgLTMzIDQ2IC0zMyA1MiAwIDcgLTkgMjEgLTIwIDMxIC0xMSAxMAotMjIgMjcgLTI2IDM5IC00IDExIC0yMiA0NSAtNDAgNzQgLTE5IDI5IC0zNCA1NSAtMzQgNTggMCAzIC0yOSA1NSAtNjMgMTE3Ci04MyAxNDUgLTE2OSAzNTAgLTE5NCA0NTcgLTMgMTQgLTEyIDM0IC0xOSA0NSAtOCAxMSAtMTQgMzQgLTE0IDUyIDAgMTggLTgKNTYgLTE5IDg1IC0zOCAxMDkgLTQyIDE1MyAtNDQgNDMwIC0yIDI4MiAxMCA0MjEgMzggNDY0IDggMTIgMjAgNTYgMjUgOTYgNwo0MiAyMCA4NSAzMiAxMDEgMTEgMTYgMzMgNjEgNDkgMTAwIDE3IDQwIDQ4IDEwMiA2OSAxMzkgMjIgMzYgNDAgNzAgNDAgNzMgMAo0IDE0IDIzIDMwIDQyIDE3IDE4IDMwIDQ1IDMwIDU4IDAgMTggMTEgMzIgMzggNDkgMzcgMjMgMTAwIDg1IDE0MSAxMzcgMTEgMTUKNDAgMzQgNjMgNDQgMjQgOSA1MCAyNSA1OCAzNCA4IDEwIDYyIDQzIDEyMCA3MyA1OCAzMCAxMjEgNjUgMTQwIDc3IDE5IDEyIDUzCjI2IDc1IDMxIDIyIDYgNTggMTkgODAgMjkgODAgMzggMTUwIDYzIDIwNCA3MyAxODEgMzIgNTY2IDMyIDY4MSAweiIvPgo8L2c+Cjwvc3ZnPgo=" alt="SafeOut">
+        <div class="logo-sep"></div>
+        <div class="logo-name">SafeOut</div>
+      </div>
+      <h1 class="main-title" data-i18n="main_title">Do you need<br>help right now?</h1>
+      <p class="main-sub" data-i18n="main_sub">Tap a button. We're here.</p>
+    </div>
+    <div class="btn-list">
+      <button class="action-btn" onclick="showConfirm('escort')" aria-label="Get me out">
+        <div class="btn-inner blue">
+          <div class="btn-icon blue"><svg viewBox="0 0 24 24" stroke="#a0aaff"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></div>
+          <div class="btn-body"><span class="btn-label blue" data-i18n="escort_label">Get me out</span><span class="btn-desc blue" data-i18n="escort_desc">Staff will escort you safely to the exit</span></div>
+          <span class="btn-arrow">&rsaquo;</span>
+        </div>
+      </button>
+      <button class="action-btn" onclick="showConfirm('contact')" aria-label="Call somebody">
+        <div class="btn-inner teal">
+          <div class="btn-icon teal"><svg viewBox="0 0 24 24" stroke="#4ecfaa"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+          <div class="btn-body"><span class="btn-label teal" data-i18n="contact_label">Call somebody</span><span class="btn-desc teal" data-i18n="contact_desc">Alert a trusted contact with your location</span></div>
+          <span class="btn-arrow">&rsaquo;</span>
+        </div>
+      </button>
+      <div class="divider"><div class="divider-line"></div><span class="divider-text" data-i18n="emergency">emergency</span><div class="divider-line"></div></div>
+      <button class="action-btn" onclick="showConfirm('112')" aria-label="Emergency 112">
+        <div class="btn-inner red">
+          <div class="btn-icon red"><svg viewBox="0 0 24 24" stroke="#ff8080"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div class="btn-body"><span class="btn-label red" data-i18n="em_label">112 &mdash; I'm in danger</span><span class="btn-desc red" data-i18n="em_desc">Location + metadata sent to authorities</span></div>
+          <span class="btn-arrow">&rsaquo;</span>
+        </div>
+      </button>
+      <button class="action-btn" onclick="showInfo()" aria-label="About SafeOut">
+        <div class="btn-inner gray">
+          <div class="btn-icon gray"><svg viewBox="0 0 24 24" stroke="rgba(255,255,255,0.38)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+          <div class="btn-body"><span class="btn-label gray" data-i18n="about_label">About SafeOut</span><span class="btn-desc gray" data-i18n="about_desc">Who we are &middot; how each button works</span></div>
+          <span class="btn-arrow">&rsaquo;</span>
+        </div>
+      </button>
+    </div>
+    <div class="footer-status"><div class="pulse-dot"></div><span class="footer-text" data-i18n="footer">dispatch active &middot; confidential</span></div>
+  </div>
+  <div class="screen" id="screen-confirm">
+    <div class="confirm-icon-wrap teal" id="confirmIcon"><svg id="confirmSvg" viewBox="0 0 24 24" stroke="#4ecfaa"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <h2 class="confirm-title" id="confirmTitle">Help is on the way</h2>
+    <p class="confirm-sub" id="confirmSub">Stay where you are if it's safe.</p>
+    <div class="confirm-meta">
+      <div class="meta-row"><span class="meta-key">Location</span><span class="meta-val live" id="metaLoc">Acquiring</span></div>
+      <div class="meta-row"><span class="meta-key">Venue ID</span><span class="meta-val" id="metaVenue">&mdash;</span></div>
+      <div class="meta-row"><span class="meta-key">Time</span><span class="meta-val" id="metaTime">&mdash;</span></div>
+      <div class="meta-row"><span class="meta-key">Dispatch</span><span class="meta-val live">Connected</span></div>
+    </div>
+    <button class="back-btn" onclick="goBack()">&larr; Back</button>
+  </div>
+  <div class="screen" id="screen-info">
+    <div class="info-header">
+      <button class="icon-btn" onclick="goBack()">&larr;</button>
+      <div class="info-title-wrap"><div class="info-h">About SafeOut</div><div class="info-sub">WHO WE ARE &middot; HOW IT WORKS</div></div>
+    </div>
+    <div class="info-scroll">
+      <div class="info-section">
+        <div class="section-label">Who we are</div>
+        <div class="who-card">
+          <div class="who-title">SafeOut</div>
+          <p class="who-p">SafeOut is a free safety tool available wherever it's needed &mdash; public spaces, transport hubs, hotels, events, or anywhere people may be vulnerable. Our first priority is combating human trafficking.</p>
+          <p class="who-p">We place QR codes in accessible locations. Anyone who feels unsafe can scan and reach help instantly &mdash; no app, no account, no sign-up required.</p>
+          <p class="who-p">Every alert is received by a real, trained person. We work with NGOs, volunteers, and authorities to make sure no scan goes unanswered.</p>
+        </div>
+      </div>
+      <div class="info-section">
+        <div class="section-label">How each button works</div>
+        <div class="btn-card">
+          <div class="btn-card-head"><div class="btn-card-ico blue"><svg viewBox="0 0 24 24" stroke="#a0aaff"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></div><span class="btn-card-name blue">Get me out</span></div>
+          <div class="btn-card-body">Alerts trained staff that someone needs a discreet exit. A person will come to you, use a code phrase, and escort you safely out &mdash; no questions asked.</div>
+        </div>
+        <div class="btn-card">
+          <div class="btn-card-head"><div class="btn-card-ico teal"><svg viewBox="0 0 24 24" stroke="#4ecfaa"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><span class="btn-card-name teal">Call somebody</span></div>
+          <div class="btn-card-body">Sends an automatic alert with your location to a trusted contact. They receive a message that you need them to call you immediately.</div>
+        </div>
+        <div class="btn-card">
+          <div class="btn-card-head"><div class="btn-card-ico red"><svg viewBox="0 0 24 24" stroke="#ff8080"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="btn-card-name red">112 &mdash; I'm in danger</span></div>
+          <div class="btn-card-body">Sends your GPS location, venue ID, and timestamped metadata to emergency services and our dispatch center simultaneously. Use when in immediate danger or if you suspect human trafficking.</div>
+        </div>
+      </div>
+      <div class="info-section">
+        <div class="section-label">Emergency hotlines</div>
+        <div class="hotline-list">
+          <div class="hotline-row"><div><div class="hotline-name">Emergency</div><div class="hotline-note">Police &middot; ambulance &middot; fire</div></div><div class="hotline-num">112</div></div>
+          <div class="hotline-row"><div><div class="hotline-name">ANITP Anti-trafficking</div><div class="hotline-note">Free &middot; 24/7 &middot; confidential</div></div><div class="hotline-num">0800 800 678</div></div>
+          <div class="hotline-row"><div><div class="hotline-name">Domestic violence</div><div class="hotline-note">Free &middot; 24/7</div></div><div class="hotline-num">0800 500 333</div></div>
+        </div>
+      </div>
+      <div class="info-section">
+        <div class="privacy-box"><div class="privacy-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><span class="privacy-txt">Your data is encrypted and only accessible to trained dispatch personnel. No personal data is stored without your consent. SafeOut does not share data with third parties.</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="screen" id="screen-disguise">
+    <div class="disguise-inner"><div class="disguise-icon">&#128295;</div><div class="disguise-title">Site under maintenance</div><div class="disguise-sub">We're working on some improvements.<br>Please check back soon.</div><button class="disguise-back" onclick="goBack()">&larr; go back</button></div>
+  </div>
+  <div class="screen" id="screen-consent">
+    <div class="info-header">
+      <button class="icon-btn" onclick="goBack()">&larr;</button>
+      <div class="info-title-wrap"><div class="info-h" id="consentHeader">Consent required</div><div class="info-sub">PERMISSION REQUIRED</div></div>
+    </div>
+    <div class="consent-scroll">
+      <div class="consent-title" id="consentTitle">Share your information?</div>
+      <div class="consent-sub" id="consentSub">Nothing is shared until you tap the button below.</div>
+      <div id="consentItems"></div>
+    </div>
+    <div class="consent-actions">
+      <button class="consent-accept" id="consentAcceptBtn" onclick="acceptConsent()">Continue</button>
+      <button class="consent-decline" onclick="goBack()">Cancel</button>
+      <div class="consent-note">By continuing you consent to SafeOut processing this data to assist you. Data is encrypted and handled per GDPR. You will be asked each time.</div>
+    </div>
+  </div>
+    </div>
+  <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheetOutside(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Choose a contact to alert</div>
+      <div class="contact-list" id="contactList">
+        <div style="padding:24px 20px;text-align:center;color:var(--text2);font-size:13px;font-weight:300" id="contactHint">
+          Loading your contacts&hellip;
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ============================================================
+//  SafeOut PWA — beneficiary logic
+//  API_BASE: set to your backend URL when ready (e.g. https://api.safeout.ro)
+// ============================================================
+const API_BASE = ''; // TODO: set backend URL
+// ---- Language / i18n (RO / EN) ----
+const I18N = {
+  en: {
+    main_title: "Do you need<br>help right now?",
+    main_sub: "Tap a button. We're here.",
+    escort_label: "Get me out",
+    escort_desc: "Staff will escort you safely to the exit",
+    contact_label: "Call somebody",
+    contact_desc: "Alert a trusted contact with your location",
+    emergency: "emergency",
+    em_label: "112 &mdash; I'm in danger",
+    em_desc: "Location + metadata sent to authorities",
+    about_label: "About SafeOut",
+    about_desc: "Who we are &middot; how each button works",
+    footer: "dispatch active &middot; confidential"
+  },
+  ro: {
+    main_title: "Ai nevoie de<br>ajutor acum?",
+    main_sub: "Apasă un buton. Suntem aici.",
+    escort_label: "Scoate-mă de aici",
+    escort_desc: "Personalul te va conduce în siguranță spre ieșire",
+    contact_label: "Sună pe cineva",
+    contact_desc: "Anunță o persoană de încredere cu locația ta",
+    emergency: "urgență",
+    em_label: "112 &mdash; sunt în pericol",
+    em_desc: "Locația + datele trimise autorităților",
+    about_label: "Despre SafeOut",
+    about_desc: "Cine suntem &middot; cum funcționează fiecare buton",
+    footer: "dispecerat activ &middot; confidențial"
+  }
+};
+let CUR_LANG = 'en';
+function setLang(lang){
+  CUR_LANG = (lang==='ro') ? 'ro' : 'en';
+  const dict = I18N[CUR_LANG];
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(dict[key] !== undefined) el.innerHTML = dict[key];
+  });
+  const ro=document.getElementById('langRO'), en=document.getElementById('langEN');
+  if(ro&&en){ ro.classList.toggle('active', CUR_LANG==='ro'); en.classList.toggle('active', CUR_LANG==='en'); }
+  try{ localStorage.setItem('safeout_lang', CUR_LANG); }catch(e){}
+  document.documentElement.lang = CUR_LANG;
+}
+// Auto-detect on load: saved choice → browser language → default EN.
+function initLang(){
+  let lang = null;
+  try{ lang = localStorage.getItem('safeout_lang'); }catch(e){}
+  if(!lang){
+    const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+    lang = nav.startsWith('ro') ? 'ro' : 'en';
+  }
+  setLang(lang);
+}
+
+const QR_ID = new URLSearchParams(window.location.search).get('q') || 'demo';
+
+// Look up this QR's stored info (venue, exact coordinates, placement/cabin).
+// BACKEND: replace with GET `${API_BASE}/qr-codes/${QR_ID}` which returns venue+coords+placement.
+function getQRInfo(){
+  try{
+    const codes = JSON.parse(localStorage.getItem('safeout_qrcodes')) || [];
+    return codes.find(q => q.code === QR_ID) || null;
+  }catch(e){ return null; }
+}
+const QR_INFO = getQRInfo();
+
+// Count this scan: increment the QR's scan counter (once per page load).
+// BACKEND: POST `${API_BASE}/qr-codes/${QR_ID}/scan` to increment server-side.
+(function countScan(){
+  if(QR_ID === 'demo') return; // don't count demo opens
+  try{
+    const codes = JSON.parse(localStorage.getItem('safeout_qrcodes')) || [];
+    const q = codes.find(x => x.code === QR_ID);
+    if(q){
+      q.scans = (q.scans||0) + 1;
+      localStorage.setItem('safeout_qrcodes', JSON.stringify(codes));
+      // notify PowerAdmin (same browser) to refresh its QR counts
+      try{ new BroadcastChannel('safeout').postMessage('qr_update'); }catch(e){}
+    }
+  }catch(e){}
+})();
+
+// Initialize language on load
+initLang();
+
+// ---- Shared incident store (localStorage) so dispatch/admin in the SAME browser can see real actions ----
+// NOTE: this is a frontend-only bridge. Real cross-device sync needs the backend.
+const STORE_KEY = 'safeout_incidents';
+function loadIncidents(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }catch(e){ return []; } }
+// Broadcast channel to notify the dispatch center instantly (same browser, cross-tab).
+let _bc = null;
+try{ _bc = new BroadcastChannel('safeout'); }catch(e){}
+function notifyDispatch(){ try{ if(_bc) _bc.postMessage('incident_update'); }catch(e){} }
+
+function saveIncident(inc){
+  const list = loadIncidents();
+  list.unshift(inc);
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(0,200))); }catch(e){}
+  notifyDispatch();
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goBack(){ showScreen('screen-main'); }
+function showInfo(){ showScreen('screen-info'); }
+
+// ---- Disguise: double-tap the logo ----
+let tapCount=0, tapTimer;
+const logoEl = document.querySelector('.logo-img');
+if(logoEl){
+  logoEl.addEventListener('click',()=>{
+    tapCount++; clearTimeout(tapTimer);
+    if(tapCount>=2){ showScreen('screen-disguise'); tapCount=0; }
+    else tapTimer=setTimeout(()=>tapCount=0,500);
+  });
+}
+
+// ---- Geolocation ----
+function getLocation(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation) return resolve({lat:null,lng:null,accuracy:null,method:'unavailable'});
+    navigator.geolocation.getCurrentPosition(
+      p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,method:p.coords.accuracy<50?'gps':'wifi'}),
+      ()=>resolve({lat:null,lng:null,accuracy:null,method:'unavailable'}),
+      {enableHighAccuracy:true,timeout:5000,maximumAge:0}
+    );
+  });
+}
+
+// ---- Camera permission + capture (returns true if granted) ----
+// Capture a photo from a given camera (facingMode). Returns base64 JPEG or null.
+async function capturePhoto(facing){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}});
+    const video = document.createElement('video');
+    video.srcObject = stream; video.setAttribute('playsinline','');
+    await video.play();
+    // give the camera a moment to expose/focus
+    await new Promise(r=>setTimeout(r,600));
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+    stream.getTracks().forEach(t=>t.stop());
+    return canvas.toDataURL('image/jpeg', 0.7);
+  }catch(e){ return null; }
+}
+
+// Capture front + back photos. Returns {front, back} base64 strings (either may be null).
+async function captureBothPhotos(){
+  const back = await capturePhoto('environment');
+  const front = await capturePhoto('user');
+  return { back, front };
+}
+
+// Record a few seconds of audio. Returns base64 (data URL) or null.
+async function captureAudio(seconds){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const rec = new MediaRecorder(stream);
+    const chunks = [];
+    rec.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
+    const done = new Promise(resolve=>{ rec.onstop = ()=>resolve(); });
+    rec.start();
+    await new Promise(r=>setTimeout(r, (seconds||5)*1000));
+    rec.stop();
+    await done;
+    stream.getTracks().forEach(t=>t.stop());
+    const blob = new Blob(chunks, {type: chunks[0] ? chunks[0].type : 'audio/webm'});
+    return await new Promise(resolve=>{ const fr=new FileReader(); fr.onloadend=()=>resolve(fr.result); fr.readAsDataURL(blob); });
+  }catch(e){ return null; }
+}
+
+// ---- Record an incident (real, saved locally so dispatch can see it) ----
+// Anonymous contact counter — stores ONLY that the button was used, no personal data.
+function recordContactPing(){
+  const KEY='safeout_contact_count';
+  let n=0; try{ n=parseInt(localStorage.getItem(KEY))||0; }catch(e){}
+  try{ localStorage.setItem(KEY, String(n+1)); }catch(e){}
+  notifyDispatch();
+  // BACKEND: await fetch(`${API_BASE}/contact-pings`,{method:'POST'}); // no body — anonymous count only
+}
+
+// ---- Live location tracking (112 only, discreet, 15 minutes) ----
+// Updates the incident's coordinates as the person moves, so dispatch sees a live pin.
+// DISCREET: nothing is shown on the victim's screen (avoids alerting an aggressor).
+// FRONTEND LIMIT: only runs while this page stays open. A locked phone or closed tab
+// stops it. BACKEND: pair with a service worker + server so tracking survives backgrounding.
+let _liveWatchId = null;
+let _liveTimer = null;
+function startLiveTracking(incidentId){
+  if(!navigator.geolocation) return;
+  // Don't start twice
+  stopLiveTracking();
+  _liveWatchId = navigator.geolocation.watchPosition(
+    (pos)=>{
+      updateIncidentLocation(incidentId, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+    },
+    (err)=>{ /* silent — discreet */ },
+    { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
+  );
+  // Auto-stop after 15 minutes
+  _liveTimer = setTimeout(()=>{ stopLiveTracking(); }, 15*60*1000);
+  // BACKEND: also POST each update to `${API_BASE}/incidents/${incidentId}/track`
+}
+function stopLiveTracking(){
+  if(_liveWatchId!==null && navigator.geolocation){ navigator.geolocation.clearWatch(_liveWatchId); _liveWatchId=null; }
+  if(_liveTimer){ clearTimeout(_liveTimer); _liveTimer=null; }
+}
+// Update the stored incident with the newest coordinates + mark it live.
+function updateIncidentLocation(incidentId, lat, lng, accuracy){
+  try{
+    const list = loadIncidents();
+    const it = list.find(x=>x.id===incidentId);
+    if(it){
+      it.latitude = lat; it.longitude = lng; it.location_accuracy_m = accuracy;
+      it.live_tracking = true;
+      it.last_location_at = new Date().toISOString();
+      localStorage.setItem(STORE_KEY, JSON.stringify(list));
+      notifyDispatch(); // push the moved pin to the dispatch map instantly
+    }
+  }catch(e){}
+}
+
+// Save captured evidence (photos + audio) to local store, linked to the incident.
+// BACKEND: upload these to /incidents/:id/evidence which stores them on Google Drive.
+function saveEvidence(incidentId, photos, audio){
+  const KEY='safeout_evidence';
+  let list=[]; try{ list=JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){}
+  const now=new Date();
+  const expires=new Date(now.getTime()+90*24*3600*1000); // 90-day FIFO
+  const add=(type,dataUrl)=>{ if(!dataUrl) return; list.unshift({
+    id:'ev-'+Math.random().toString(36).slice(2,9),
+    incident_id:incidentId, file_type:type,
+    data:dataUrl,
+    uploaded:now.toISOString().slice(0,10),
+    expires:expires.toISOString().slice(0,10),
+    legal_hold:false
+  }); };
+  add('photo', photos.back);
+  add('photo', photos.front);
+  add('audio', audio);
+  try{ localStorage.setItem(KEY, JSON.stringify(list.slice(0,60))); }catch(e){}
+}
+
+async function recordIncident(type, extra){
+  extra = extra || {};
+  let loc;
+  if(QR_INFO && QR_INFO.lat && QR_INFO.lng){
+    // This QR is assigned to a fixed venue → use its exact coordinates, not GPS.
+    loc = { lat: QR_INFO.lat, lng: QR_INFO.lng, accuracy: 5, method: 'qr_fixed' };
+  } else {
+    // Street/public QR → fall back to the phone's GPS.
+    loc = extra._preloc || await getLocation();
+  }
+  delete extra._preloc;
+  const inc = {
+    id: 'so-' + Date.now().toString(36),
+    situation_type: type,           // 'emergency' | 'escort' | 'contact'
+    qr_code_id: QR_ID,
+    venue_name: QR_INFO ? QR_INFO.venue : null,
+    placement: QR_INFO ? QR_INFO.placement : null,
+    city: QR_INFO ? (QR_INFO.city||null) : null,
+    latitude: loc.lat,
+    longitude: loc.lng,
+    location_accuracy_m: loc.accuracy,
+    location_method: loc.method,
+    status: 'pending',
+    created_at: new Date().toISOString(),
+    ...(extra||{})
+  };
+  saveIncident(inc);
+  // BACKEND: await fetch(`${API_BASE}/incidents`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(inc)});
+  return inc;
+}
+
+// ---- Confirmation screen ----
+function paintConfirm(type){
+  const configs = {
+    escort:{cls:'blue',stroke:'#a0aaff',svgPath:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>',title:'Staff has been alerted',sub:'A trained staff member is heading to you. Stay where you are. They will use a code phrase to identify themselves.'},
+    emergency:{cls:'red',stroke:'#ff8080',svgPath:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',title:'Alert sent to 112',sub:'Your location and metadata have been sent to emergency services and our dispatch center. Help is on the way.'},
+    contact:{cls:'teal',stroke:'#4ecfaa',svgPath:'<polyline points="20 6 9 17 4 12"/>',title:'Contact alerted',sub:'Your chosen contact has been recorded. Our dispatch team can see your request.'}
+  };
+  const c = configs[type] || configs.escort;
+  const icon = document.getElementById('confirmIcon');
+  icon.className = 'confirm-icon-wrap ' + c.cls;
+  const svg = document.getElementById('confirmSvg');
+  svg.setAttribute('stroke', c.stroke);
+  svg.innerHTML = c.svgPath;
+  document.getElementById('confirmTitle').textContent = c.title;
+  document.getElementById('confirmSub').textContent = c.sub;
+  const now = new Date();
+  document.getElementById('metaTime').textContent = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('metaVenue').textContent = QR_ID!=='demo' ? QR_ID.slice(0,14) : 'Demo venue';
+  showScreen('screen-confirm');
+}
+
+// ---- Escort button ----
+let _pendingAction = null; // remembers which action the consent screen is for
+
+// Consent content per action type
+const CONSENT_CONFIG = {
+  escort: {
+    header: 'Get me out',
+    title: 'Ask staff to help you leave?',
+    sub: 'Trained staff will be alerted to escort you safely to the exit. Nothing is shared until you tap the button.',
+    btn: 'Alert staff & share location',
+    items: [
+      { ico:'loc', t:'Your location', d:'So staff can find you inside the venue' },
+      { ico:'meta', t:'Venue & time', d:'Which QR you scanned and when' }
+    ]
+  },
+  contact: {
+    header: 'Call somebody',
+    title: 'Alert one of your contacts?',
+    sub: 'You will choose a contact. A message with your location will be prepared to send to them. Nothing is shared until you choose.',
+    btn: 'Choose a contact',
+    items: [
+      { ico:'loc', t:'Your location', d:'Added to the message for your contact' },
+      { ico:'phone', t:'A contact you pick', d:'Only used to open a pre-filled message' }
+    ]
+  },
+  '112': {
+    header: 'Emergency — 112',
+    title: 'Send emergency alert to 112?',
+    sub: 'To help authorities reach and identify you, SafeOut will collect the following. Nothing is sent until you tap the button.',
+    btn: 'Send alert & share data',
+    items: [
+      { ico:'loc', t:'Your location', d:'Precise GPS coordinates so help can find you' },
+      { ico:'cam', t:'A photo', d:'One photo from your camera to document the situation' },
+      { ico:'mic', t:'Audio recording', d:'A few seconds of ambient audio' },
+      { ico:'meta', t:'Device metadata', d:'Timestamp and venue ID for the response team' }
+    ]
+  }
+};
+
+const CONSENT_ICONS = {
+  loc:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  cam:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  mic:'<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>',
+  meta:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'
+};
+
+// EVERY action now routes through the consent screen first — asked every single time.
+function showConfirm(type){
+  _pendingAction = type;
+  const cfg = CONSENT_CONFIG[type] || CONSENT_CONFIG.escort;
+  document.getElementById('consentHeader').textContent = cfg.header;
+  document.getElementById('consentTitle').textContent = cfg.title;
+  document.getElementById('consentSub').textContent = cfg.sub;
+  document.getElementById('consentAcceptBtn').textContent = cfg.btn;
+  document.getElementById('consentItems').innerHTML = cfg.items.map((it,i)=>
+    '<div class="consent-item"'+(i===cfg.items.length-1?' style="border-bottom:none"':'')+'>'+
+    '<div class="consent-item-ico"><svg viewBox="0 0 24 24">'+CONSENT_ICONS[it.ico]+'</svg></div>'+
+    '<div class="consent-item-txt"><div class="consent-item-t">'+it.t+'</div><div class="consent-item-d">'+it.d+'</div></div></div>'
+  ).join('');
+  showScreen('screen-consent');
+}
+
+// User tapped the consent button — now perform the action for real.
+async function acceptConsent(){
+  const type = _pendingAction;
+  if(type === 'contact'){
+    // Open contact picker (message flow handled in pickContact)
+    openSheet();
+    return;
+  }
+  if(type === '112'){
+    paintConfirm('emergency');
+    document.getElementById('metaLoc').textContent = 'Capturing photos…';
+    // Capture front + back photos (real)
+    const photos = await captureBothPhotos();
+    document.getElementById('metaLoc').textContent = 'Recording audio…';
+    // Record a few seconds of audio (real)
+    const audio = await captureAudio(5);
+    document.getElementById('metaLoc').textContent = 'Sending…';
+    const inc = await recordIncident('emergency', {
+      consent_given:true,
+      camera_granted: !!(photos.front || photos.back),
+      mic_granted: !!audio,
+      has_front_photo: !!photos.front,
+      has_back_photo: !!photos.back,
+      has_audio_recording: !!audio
+    });
+    // Save evidence files linked to this incident (stored locally until backend)
+    saveEvidence(inc.id, photos, audio);
+    // Start discreet live-location tracking for 15 minutes (112 only).
+    startLiveTracking(inc.id);
+    document.getElementById('metaLoc').textContent = inc.latitude ? 'Transmitted' : 'Sent (no GPS)';
+    return;
+  }
+  // escort
+  paintConfirm('escort');
+  document.getElementById('metaLoc').textContent = 'Acquiring…';
+  const inc = await recordIncident('escort', { consent_given:true });
+  document.getElementById('metaLoc').textContent = inc.latitude ? 'Transmitted' : 'Unavailable';
+}
+
+// ---- Call somebody: Contact Picker API (Android Chrome) ----
+function openSheet(){
+  const overlay = document.getElementById('sheetOverlay');
+  overlay.classList.add('open');
+  loadContactsIntoSheet();
+}
+function closeSheetOutside(e){
+  if(e.target===document.getElementById('sheetOverlay')) document.getElementById('sheetOverlay').classList.remove('open');
+}
+
+async function loadContactsIntoSheet(){
+  const listEl = document.getElementById('contactList');
+  // Check Contact Picker API support (Android Chrome / Edge)
+  const supported = ('contacts' in navigator && 'ContactsManager' in window);
+  if(!supported){
+    listEl.innerHTML = `<div style="padding:22px 20px;text-align:center;color:var(--text2);font-size:13px;font-weight:300;line-height:1.6">
+      Your device doesn't support picking contacts directly from the browser.<br><br>
+      <span style="color:var(--text3);font-size:12px">On Android Chrome you'll see your real contacts here. On iPhone, this feature isn't available yet.</span>
+    </div>`;
+    return;
+  }
+  listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Tap below to choose from your contacts</div>
+    <button class="contact-item" onclick="pickContact()" style="justify-content:center;color:var(--teal)">
+      <div class="contact-info" style="flex:none"><span class="contact-name" style="color:var(--teal)">Open my contacts</span></div>
+    </button>`;
+}
+
+async function pickContact(){
+  try{
+    const props = ['name','tel'];
+    const opts = {multiple:false};
+    const contacts = await navigator.contacts.select(props, opts);
+    if(contacts && contacts.length){
+      const chosen = contacts[0];
+      const name = (chosen.name && chosen.name[0]) || 'Contact';
+      const tel = (chosen.tel && chosen.tel[0]) ? chosen.tel[0].replace(/\s+/g,'') : '';
+      document.getElementById('sheetOverlay').classList.remove('open');
+      paintConfirm('contact');
+      document.getElementById('metaLoc').textContent = 'Getting your location…';
+
+      // Get location ONLY for the message to the contact (not stored by us)
+      const loc = await getLocation();
+
+      // Record an ANONYMOUS counter entry to dispatch — NO name, NO phone, NO location stored.
+      // The person consents to their data being processed only by the contact they message.
+      recordContactPing();
+      document.getElementById('metaLoc').textContent = 'Message prepared';
+
+      // Build the SMS body with location + Google Maps link
+      let mapsLink = '';
+      if(loc.lat && loc.lng){ mapsLink = ' My location: https://maps.google.com/?q=' + loc.lat + ',' + loc.lng; }
+      const body = 'Am nevoie sa ma suni ACUM. Sunt intr-o situatie in care nu ma simt in siguranta.' + mapsLink + ' (Trimis prin SafeOut)';
+
+      // Open the SMS app pre-filled — one tap to send (browsers don't allow full auto-send)
+      if(tel){
+        const smsHref = 'sms:' + tel + (/(iPhone|iPad|Macintosh)/.test(navigator.userAgent) ? '&' : '?') + 'body=' + encodeURIComponent(body);
+        // Small delay so the confirm screen paints first
+        setTimeout(()=>{ window.location.href = smsHref; }, 600);
+      }
+    }
+  }catch(e){
+    document.getElementById('sheetOverlay').classList.remove('open');
+  }
+}
+
+</script>
+</body>
+</html>
