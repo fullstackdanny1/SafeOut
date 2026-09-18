@@ -1,12 +1,11 @@
 import express from 'express';
+import { pool } from '../db/db.js';
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json([
-    { incident_id: '1', victim_location: '...', contact_receiver: '...' },
-    { incident_id: '2', victim_location: '...', contact_receiver: '...' }
-  ]);
+router.get('/', async (req, res) => {
+  const result = await pool.query('SELECT * FROM incidents ORDER BY created_at DESC');
+  res.json(result.rows);
 });
 
 export default router;
