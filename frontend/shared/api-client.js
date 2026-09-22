@@ -84,8 +84,10 @@ export const api = {
   logAction: (incidentId, body) => request('POST', `${ROUTES.incidents}/${id(incidentId)}/actions`, { body }),
   listAudit: (o = {}) => request('GET', ROUTES.audit, { signal: o.signal }),
 
-  // public (used by the PWA in the next step)
+  // public (used by the PWA)
   createIncident: (body) => request('POST', ROUTES.incidents, { body, auth: false }),
+  updateIncidentLocation: (incidentId, body) =>
+    request('PATCH', `${ROUTES.incidents}/${id(incidentId)}/location`, { body, auth: false }),
   getQr: (code) => request('GET', `${ROUTES.qr}/${id(code)}`, { auth: false }),
 
   register: (body) => request('POST', '/auth/register', { body }),
@@ -98,7 +100,7 @@ export const api = {
   deleteVenue: (venueId) => request('DELETE', `${ROUTES.venues}/${id(venueId)}`),
 
   addQr: (body) => request('POST', ROUTES.qr, { body }),
-  toggleQrActive: (code, active) => request('PATCH', `${ROUTES.qr}/${id(code)}`, { body: { active } }),
+  toggleQrActive: (qrId, active) => request('PATCH', `${ROUTES.qr}/${id(qrId)}`, { body: { active } }),
   listQrcodes: (o = {}) => request('GET', ROUTES.qr, { signal: o.signal }),
 
   listEvidence: (o = {}) => request('GET', ROUTES.evidence, { signal: o.signal }),
@@ -108,4 +110,5 @@ export const api = {
   toggleLegalHold: (evidenceId, legal_hold) => request('PATCH', `${ROUTES.evidence}/${id(evidenceId)}`, { body: { legal_hold } }),
 
   recordContactPing: () => request('POST', '/contact-pings', { auth: false }),
+  contactStats: (o = {}) => request('GET', '/contact-pings/stats', { signal: o.signal }),
 };

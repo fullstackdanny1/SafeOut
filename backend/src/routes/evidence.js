@@ -1,5 +1,5 @@
 import express from 'express';
-import { pool } from '../db/db.js';
+import { pool, queryAsDispatcher } from '../db/db.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
@@ -47,7 +47,12 @@ router.get('/', authenticate, requireRole('super_admin'), asyncHandler(async (re
 // Protejat — conținutul efectiv (storage_url), doar la cerere explicită, per element
 router.get('/:id', authenticate, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const result = await pool.query('SELECT * FROM evidence WHERE id = $1', [id]);
+  // JOIN pe incidents => RLS aplică filtrul pe oraș: un dispecer vede doar dovezile din orașul lui
+  const result = await queryAsDispatcher(
+    req.dispatcher,
+    'SELECT e.* FROM evidence e JOIN incidents i ON i.id = e.incident_id WHERE e.id = $1',
+    [id]
+  );
   if (result.rowCount === 0) throw new AppError(404, 'Dovadă inexistentă', 'Nu există această dovadă');
   res.json(result.rows[0]);
 }));
@@ -55,6 +60,9 @@ router.get('/:id', authenticate, asyncHandler(async (req, res) => {
 router.patch('/:id', authenticate, requireRole('super_admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { legal_hold } = req.body;
+  if (typeof legal_hold !== 'boolean') {
+    throw new AppError(400, 'Date lipsă', 'legal_hold trebuie să fie true sau false');
+  }
   const result = await pool.query('UPDATE evidence SET legal_hold = $1 WHERE id = $2 RETURNING *', [legal_hold, id]);
   if (result.rowCount === 0) throw new AppError(404, 'Dovadă inexistentă', 'Nu există această dovadă');
   res.json(result.rows[0]);

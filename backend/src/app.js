@@ -1,10 +1,9 @@
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 
 import healthRouter from './routes/health.js';
 import incidentsRouter from './routes/incidents.js';
@@ -15,14 +14,26 @@ import auditLogRouter from './routes/auditLog.js';
 import venuesRouter from './routes/venues.js';
 import evidenceRouter from './routes/evidence.js';
 import contactPingsRouter from './routes/contactPings.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Dovezile (poze/audio) vin ca data URL-uri base64, deci au nevoie de o limită mai mare
+app.use('/evidence', express.json({ limit: '15mb' }));
 app.use(express.json());
 
+function hasValidToken(req) {
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) return false;
+  try { jwt.verify(auth.slice(7), process.env.JWT_SECRET); return true; } catch { return false; }
+}
+
+// Limitează doar cererile publice (POST/PATCH de la victime). Polling-ul dispecerilor (GET la 3s)
+// ar consuma altfel toată fereastra în ~5 minute și ar primi 429.
 const publicApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minute
   max: 100, // Maxim 100 de cereri per IP per fereastră
+  skip: (req) => req.method === 'GET' || hasValidToken(req),
   message: { error: 'Prea multe cereri de la această adresă IP. Încearcă mai târziu.' }
 });
 

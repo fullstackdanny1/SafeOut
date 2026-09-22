@@ -101,6 +101,10 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 .map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:30px 30px}
 .map-center-dot{width:12px;height:12px;border-radius:50%;background:var(--burg);box-shadow:0 0 0 4px rgba(125,37,69,.25),0 0 0 8px rgba(125,37,69,.1);position:relative;z-index:1}
 .map-note{position:absolute;bottom:12px;right:12px;font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px}
+.notes-box{display:none}.notes-box.open{display:block}
+.inc-notes{font-size:11px;color:var(--text2);white-space:pre-wrap;background:var(--bg3);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;border-left:2px solid var(--blue-border)}
+.incident-card.is-new{animation:incIn .5s ease}
+@keyframes incIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .notes-area{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);width:100%;resize:none;height:80px;outline:none;transition:border-color .15s;margin-top:8px}
 .notes-area:focus{border-color:var(--burg-border)}
 .notes-area::placeholder{color:var(--text3)}
