@@ -99,10 +99,11 @@ function toDisplay(raw) {
     updated: raw.updated_at || '',
     message: raw.victim_message || '',
     notes: raw.notes || '',
+    evidence: Number(raw.evidence_count) || 0,
     lat: num(raw.latitude), lng: num(raw.longitude),
   };
 }
-const cardHash = (i) => [i.updated, i.status, i.lat, i.lng, i.live, i.message, i.notes, i.placement, i.venue, i.qr, i.fixed].join('|');
+const cardHash = (i) => [i.updated, i.status, i.lat, i.lng, i.live, i.message, i.notes, i.evidence, i.placement, i.venue, i.qr, i.fixed].join('|');
 
 function applyServerList(rows) {
   const list = rows.filter((r) => r.situation_type !== 'contact').map(toDisplay);
@@ -133,7 +134,9 @@ function cardHTML(inc) {
     (inc.placement ? '<div class="inc-msg" style="border-left-color:var(--amber-border);color:var(--amber)">&#128682; ' + esc(inc.placement) + '</div>' : '') +
     (inc.message ? '<div class="inc-msg">"' + esc(inc.message) + '"</div>' : '') +
     (inc.notes ? '<div class="inc-notes">' + esc(inc.notes) + '</div>' : '') +
-    '<div class="inc-actions">' + actions + '<button class="inc-btn secondary" data-action="notes">Notes</button></div>' +
+    '<div class="inc-actions">' + actions + '<button class="inc-btn secondary" data-action="notes">Notes</button>' +
+    (inc.evidence ? '<button class="inc-btn secondary" data-action="evidence">&#128206; Evidence (' + inc.evidence + ')</button>' : '') + '</div>' +
+    '<div class="evidence-box" data-local="evidence"></div>' +
     '<div class="notes-box" data-local="notes"><textarea class="notes-area" placeholder="Add operational notes..."></textarea>' +
     '<button class="notes-submit" data-action="save-note">Save note</button></div></div>';
 }
@@ -367,6 +370,39 @@ async function saveNote(id, card) {
   } catch (e) { toast(errMsg(e)); }
 }
 
+// Photos / audio captured by the victim's phone. Loaded on demand (they are large data URLs).
+async function toggleEvidence(id, card) {
+  const box = card.querySelector('.evidence-box'); if (!box) return;
+  if (box.classList.contains('open')) { box.classList.remove('open'); return; }
+  box.classList.add('open');
+  box.innerHTML = '<div class="evidence-empty">Loading evidence\u2026</div>';
+  try {
+    const items = await api.listIncidentEvidence(id);
+    const safeUrl = (u) => (/^(data:(image|audio)\/|https?:\/\/|\/uploads\/)/.test(u) ? u : '');
+    box.innerHTML = items.length ? items.map((e) => {
+      const url = safeUrl(e.storage_url);
+      const when = new Date(e.uploaded_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+      if (!url) return '';
+      return e.file_type === 'audio'
+        ? '<div class="evidence-item audio"><audio controls preload="none" src="' + esc(url) + '"></audio><span>' + esc(when) + '</span></div>'
+        : '<a class="evidence-item" href="' + esc(url) + '" data-action="evidence-open" title="Open full size"><img src="' + esc(url) + '" alt="Photo evidence"><span>' + esc(when) + '</span></a>';
+    }).join('') : '<div class="evidence-empty">No evidence uploaded yet</div>';
+  } catch (e) {
+    box.innerHTML = '<div class="evidence-empty">' + esc(errMsg(e)) + '</div>';
+  }
+}
+
+// data: URLs can't be opened as top-level navigations, so show the photo in a new tab ourselves
+function openEvidence(url) {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Allow pop-ups to open the photo.'); return; }
+  const img = win.document.createElement('img');
+  img.src = url; img.style.maxWidth = '100%';
+  win.document.title = 'SafeOut evidence';
+  win.document.body.style.cssText = 'margin:0;background:#111;display:flex;justify-content:center';
+  win.document.body.appendChild(img);
+}
+
 // ---------- settings ----------
 function renderSettings() {
   const u = S.user; if (!u) return;
@@ -461,6 +497,8 @@ document.addEventListener('click', (e) => {
     case 'call112': call112(id); break;
     case 'notes': { const box = card.querySelector('.notes-box'); if (box) { box.classList.toggle('open'); if (box.classList.contains('open')) { const ta = box.querySelector('textarea'); if (ta) ta.focus(); } } break; }
     case 'save-note': saveNote(id, card); break;
+    case 'evidence': toggleEvidence(id, card); break;
+    case 'evidence-open': e.preventDefault(); openEvidence(el.getAttribute('href')); break;
     case 'save-profile': saveProfile(); break;
     case 'change-password': changePassword(); break;
   }

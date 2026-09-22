@@ -81,6 +81,7 @@ export const api = {
   // incidents
   listIncidents: (o = {}) => request('GET', ROUTES.incidents, { signal: o.signal, query: o.query }),
   patchIncident: (incidentId, body) => request('PATCH', `${ROUTES.incidents}/${id(incidentId)}`, { body }),
+  listIncidentEvidence: (incidentId) => request('GET', `${ROUTES.incidents}/${id(incidentId)}/evidence`),
   logAction: (incidentId, body) => request('POST', `${ROUTES.incidents}/${id(incidentId)}/actions`, { body }),
   listAudit: (o = {}) => request('GET', ROUTES.audit, { signal: o.signal }),
 

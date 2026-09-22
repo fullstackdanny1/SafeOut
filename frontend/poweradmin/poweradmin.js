@@ -1,4 +1,4 @@
-import { api, session } from '../shared/api-client.js';
+import { api, session, setUnauthorizedHandler } from '../shared/api-client.js';
 import { esc } from '../shared/live.js';
 
 // ============================================================
@@ -35,43 +35,50 @@ function showGateBlock() {
 }
 
 // ---- Autentificare ----
+// Intră în aplicație cu un utilizator deja autentificat (după login sau la refresh cu token salvat)
+async function enterApp(user) {
+    ACCOUNT_CITY = user.city;
+    ACCOUNT_ROLE = user.role;
+
+    const orgCity = document.getElementById('orgCity');
+    if (orgCity) orgCity.textContent = `All cities · ${ACCOUNT_CITY}`;
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
+
+    geocodeCity(ACCOUNT_CITY).then(coords => { if (coords) ACCOUNT_CITY_COORDS = coords; });
+
+    await loadAllData();
+    renderAll();
+    clearInterval(pollTimer);
+    pollTimer = setInterval(pollLiveData, 5000);
+}
+
 window.doLogin = async function() {
     const email = document.getElementById('loginEmail').value.trim().toLowerCase();
     const pass = document.getElementById('loginPass').value;
     const err = document.getElementById('loginError');
+    const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
 
+    if (!email || !pass) { showErr('Introdu emailul și parola.'); return; }
+
+    let data;
     try {
-        const data = await api.login(email, pass);
-        session.set(data.access_token);
-
-        ACCOUNT_CITY = data.dispatcher.city;
-        ACCOUNT_ROLE = data.dispatcher.role;
-
-        if (ACCOUNT_ROLE !== 'super_admin') {
-            if (err) { err.textContent = 'Acces permis doar administratorilor.'; err.style.display = 'block'; }
-            session.clear();
-            return;
-        }
-
-        const coords = await geocodeCity(ACCOUNT_CITY);
-        if (coords) ACCOUNT_CITY_COORDS = coords;
-
-        const orgCity = document.getElementById('orgCity');
-        if (orgCity) orgCity.textContent = `All cities · ${ACCOUNT_CITY}`;
-
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appShell').classList.remove('hidden');
-        if (err) err.style.display = 'none';
-
-        await loadAllData();
-        renderAll();
-        clearInterval(pollTimer);
-        pollTimer = setInterval(pollLiveData, 5000);
-
+        data = await api.login(email, pass);
     } catch (error) {
-        console.error('Login failed:', error);
-        if (err) { err.textContent = 'Date de autentificare incorecte.'; err.style.display = 'block'; }
+        showErr(error.status === 401 ? 'Date de autentificare incorecte.'
+              : error.status === 0 ? 'Serverul nu poate fi contactat.'
+              : (error.message || 'Autentificare eșuată.'));
+        return;
     }
+
+    if (data.dispatcher.role !== 'super_admin') {
+        showErr('Acces permis doar administratorilor.');
+        return;
+    }
+    session.set(data.access_token);
+    if (err) err.style.display = 'none';
+    await enterApp(data.dispatcher);
 };
 
 window.doLogout = function() {
@@ -84,16 +91,29 @@ window.doLogout = function() {
     if (p) p.value = '';
 };
 
+// Token expirat (după 8h) => înapoi la login, nu un panou care arată date vechi
+setUnauthorizedHandler(() => {
+    if (!pollTimer) return;
+    window.doLogout();
+    const err = document.getElementById('loginError');
+    if (err) { err.textContent = 'Sesiunea a expirat. Autentifică-te din nou.'; err.style.display = 'block'; }
+});
+
 // ---- Încărcare Date din API ----
+let CONTACT_PINGS = 0;
+
 async function loadAllData() {
     try {
-        [VENUES, DISPATCHERS, QRCODES, EVIDENCE, INCIDENTS] = await Promise.all([
+        let contacts;
+        [VENUES, DISPATCHERS, QRCODES, EVIDENCE, INCIDENTS, contacts] = await Promise.all([
             api.listVenues().catch(() => []),
             api.listDispatchers().catch(() => []),
             api.listQrcodes().catch(() => []),
             api.listEvidence().catch(() => []),
-            api.listIncidents().catch(() => [])
+            api.listIncidents().catch(() => []),
+            api.contactStats().catch(() => null)
         ]);
+        if (contacts) CONTACT_PINGS = contacts.total;
     } catch (e) {
         console.warn('Eroare la încărcarea datelor inițiale', e);
     }
@@ -103,6 +123,8 @@ async function pollLiveData() {
     try {
         INCIDENTS = await api.listIncidents().catch(() => INCIDENTS);
         EVIDENCE = await api.listEvidence().catch(() => EVIDENCE);
+        const contacts = await api.contactStats().catch(() => null);
+        if (contacts) CONTACT_PINGS = contacts.total;
         refreshPA();
     } catch (e) { /* ignore, se reîncearcă la următorul tick */ }
 }
@@ -142,6 +164,7 @@ function refreshPA() {
     if (id === 'page-dashboard') renderDashboard();
     else if (id === 'page-evidence') renderEvidence();
     else if (id === 'page-analytics') renderAnalytics();
+    else if (id === 'page-reports') renderReport();
 }
 
 const empty = (msg) => `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:36px 0;font-size:13px">${msg}</td></tr>`;
@@ -158,6 +181,10 @@ function renderDashboard() {
     
     const em = document.getElementById('paEmergency'); if (em) em.textContent = emergency;
     const rr = document.getElementById('paResRate'); if (rr) rr.textContent = INCIDENTS.length ? Math.round(resolved / INCIDENTS.length * 100) + '%' : '—';
+    const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.textContent = v; };
+    set('paTypeEmergency', emergency);
+    set('paTypeEscort', INCIDENTS.filter(i => i.situation_type === 'escort').length);
+    set('paTypeContact', CONTACT_PINGS);
     
     renderCharts(INCIDENTS);
 }
@@ -283,6 +310,16 @@ function renderReport() {
 }
 
 // ---- Grafice & Analize ----
+function barChart(elId, entries) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!entries.length) { el.innerHTML = '<div style="margin:auto;color:var(--text3);font-size:12px">No data yet</div>'; return; }
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    el.innerHTML = entries.map(([label, v]) =>
+        `<div class="bar-col" title="${esc(label)}: ${v}"><div class="bar" style="height:${v / max * 100}%"></div><div class="bar-label">${esc(label)}</div></div>`
+    ).join('');
+}
+
 function renderCharts(incidents) {
     const now = Date.now(); const weekMs = 7 * 24 * 3600 * 1000;
     const weeks = new Array(8).fill(0);
@@ -313,7 +350,20 @@ function renderAnalytics() {
         ? acked.reduce((s, i) => s + (new Date(i.acknowledged_at) - new Date(i.created_at)) / 1000, 0) / acked.length
         : null;
     set('anAvgResp', avgSec === null ? '—' : avgSec < 60 ? Math.round(avgSec) + 's' : Math.round(avgSec / 60) + ' min');
-    // Extinde logica analiticelor la nevoie
+
+    // Scanări pe tip de locație (QR-urile fără locație = stradă / public)
+    const byType = {};
+    scopedQRs.forEach(q => {
+        const venue = VENUES.find(v => v.id === q.venue_id);
+        const type = venue ? (venue.type || 'other') : 'street';
+        byType[type] = (byType[type] || 0) + (q.scans || 0);
+    });
+    barChart('venueTypeChart', Object.entries(byType).sort((a, b) => b[1] - a[1]));
+
+    // Ore de vârf: incidente pe intervale de 3 ore
+    const buckets = new Array(8).fill(0);
+    scoped.forEach(i => { buckets[Math.floor(new Date(i.created_at).getHours() / 3)]++; });
+    barChart('hoursChart', scoped.length ? buckets.map((v, b) => [String(b * 3).padStart(2, '0') + 'h', v]) : []);
 }
 
 // ---- Geocoding ----
@@ -516,8 +566,69 @@ window.submitModal = async function() {
   }
 };
 
+// ---- Export ----
+function downloadFile(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function toCSV(rows) {
+  const cell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\n');   // BOM => Excel citește corect diacriticele
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+function exportIncidentsCSV() {
+  const cols = ['id', 'created_at', 'situation_type', 'status', 'city', 'venue_name', 'placement', 'latitude', 'longitude',
+                'location_method', 'live_tracking', 'acknowledged_at', 'resolved_at', 'evidence_count', 'notes'];
+  downloadFile(`safeout-incidents-${today()}.csv`, toCSV([cols, ...INCIDENTS.map(i => cols.map(c => i[c]))]), 'text/csv;charset=utf-8');
+}
+
+// Rezumat agregat pe oraș (fără date personale) — pentru raportarea către ANITP
+function exportSummaryCSV() {
+  const cities = [...new Set(INCIDENTS.map(i => i.city))].sort();
+  const rows = [['city', 'total_incidents', 'emergency_112', 'escort', 'resolved', 'avg_minutes_to_acknowledge']];
+  cities.forEach(city => {
+    const list = INCIDENTS.filter(i => i.city === city);
+    const acked = list.filter(i => i.acknowledged_at);
+    const avg = acked.length ? acked.reduce((s, i) => s + (new Date(i.acknowledged_at) - new Date(i.created_at)), 0) / acked.length / 60000 : null;
+    rows.push([city, list.length, list.filter(i => i.situation_type === 'emergency').length,
+               list.filter(i => i.situation_type === 'escort').length, list.filter(i => i.status === 'resolved').length,
+               avg === null ? '' : avg.toFixed(1)]);
+  });
+  downloadFile(`safeout-summary-${today()}.csv`, toCSV(rows), 'text/csv;charset=utf-8');
+}
+
+// PDF: deschidem raportul într-o fereastră curată și folosim „Save as PDF” din dialogul de print
+function exportReportPDF() {
+  renderReport();
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite ferestrele pop-up pentru a genera raportul.'); return; }
+  const val = (id) => esc((document.getElementById(id) || {}).textContent || '—');
+  const rows = [['Total incidents', 'rTotal'], ['Emergency escalations', 'rEmergency'], ['Resolved', 'rResolved'],
+                ['Active venues', 'rVenues'], ['Registered dispatchers', 'rDispatchers']];
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>SafeOut report ${today()}</title>
+    <style>body{font-family:system-ui,sans-serif;padding:40px;color:#111}h1{font-size:22px;margin-bottom:4px}
+    p{color:#666;margin-top:0}table{border-collapse:collapse;width:100%;max-width:520px;margin-top:24px}
+    td{border-bottom:1px solid #ddd;padding:10px 4px}td:last-child{text-align:right;font-weight:600}</style></head>
+    <body><h1>SafeOut — ${val('reportTitle').replace('Report preview — ', 'Report ')}</h1><p>Generated ${new Date().toLocaleString('ro-RO')}</p>
+    <table>${rows.map(([label, id]) => `<tr><td>${label}</td><td>${val(id)}</td></tr>`).join('')}</table></body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 window.mockExport = function(type) {
-  alert(`Export ${type} — funcționalitate demonstrativă, neconectată la un generator real de fișiere.`);
+  if (type === 'CSV') exportIncidentsCSV();
+  else if (type === 'ANITP') exportSummaryCSV();
+  else exportReportPDF();
 };
 
 window.downloadQR = function(idx) {
@@ -537,6 +648,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!checkAccessGate()) { showGateBlock(); return; }
     const p = document.getElementById('loginPass');
     if (p) p.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    // Refresh cu token încă valid => rămânem logați
+    if (session.token) {
+        api.me()
+            .then(user => { if (user.role === 'super_admin') return enterApp(user); session.clear(); })
+            .catch(() => session.clear());
+    }
     
     // Ceas
     const updateClock = () => {

@@ -99,7 +99,22 @@ router.patch('/:id/location', asyncHandler(async (req, res) => {
 router.get('/', authenticate, asyncHandler(async (req, res) => {
   const result = await queryAsDispatcher(
     req.dispatcher,
-    'SELECT * FROM incidents ORDER BY created_at DESC'
+    `SELECT i.*, (SELECT count(*)::int FROM evidence e WHERE e.incident_id = i.id) AS evidence_count
+     FROM incidents i ORDER BY i.created_at DESC`
+  );
+  res.json(result.rows);
+}));
+
+// Dovezile unui incident (poze / audio), pentru dispecerul care vede incidentul (RLS pe oraș)
+router.get('/:id/evidence', authenticate, asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  const result = await queryAsDispatcher(
+    req.dispatcher,
+    `SELECT e.id, e.file_type, e.storage_url, e.uploaded_at
+     FROM evidence e JOIN incidents i ON i.id = e.incident_id
+     WHERE e.incident_id = $1
+     ORDER BY e.uploaded_at`,
+    [id]
   );
   res.json(result.rows);
 }));
