@@ -1,11 +1,11 @@
 {
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node src/app.js",
-    "migrate": "node-pg-migrate -m src/db/migrations --database-url-var MIGRATION_DB_URL",
+    "migrate": "node scripts/migrate.js",
     "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
