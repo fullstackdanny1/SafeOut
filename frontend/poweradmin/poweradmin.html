@@ -156,6 +156,7 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 </div>
 </div></div>
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)"><div class="modal"><div class="modal-title" id="modalTitle">Add</div><div class="modal-sub" id="modalSub">Fill in the details below</div><div id="modalFields"></div><div class="modal-actions"><button class="modal-btn cancel" onclick="closeModal()">Cancel</button><button class="modal-btn primary" onclick="submitModal()">Save</button></div></div></div>
+<!--
 <script>
 // ============================================================
 //  SafeOut — PowerAdmin (NGO control panel)
@@ -691,5 +692,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const p=document.getElementById('loginPass');
   if(p) p.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 });
-
-</script></body></html>
+</script>
+-->
+<script type="module" src="poweradmin.js"></script>
+</body>
+</html>

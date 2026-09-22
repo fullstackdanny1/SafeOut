@@ -125,7 +125,7 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="user@admin.ro" autocomplete="email"></div>
 <div class="field"><label>Password</label><input type="password" id="loginPass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password"></div>
 <div id="loginError" style="display:none;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#ff8080;text-align:center">Access denied. Invalid credentials.</div>
-    <button class="login-btn" onclick="doLogin()">Sign in to Dispatch</button>
+    <button class="login-btn" data-action="login">Sign in to Dispatch</button>
 </div></div>
 <div id="appShell" class="hidden">
 <div class="sidebar">
@@ -133,12 +133,12 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 <div class="sidebar-role"><div class="role-label">Logged in as</div><div class="role-name" id="dispatcherName">&mdash;</div><div class="role-center" id="dispatcherCity">Dispecerat Central</div></div>
 <nav class="sidebar-nav">
 <div class="nav-section">Operations</div>
-<button class="nav-item active" onclick="switchPage('live')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Live Incidents</button>
-<button class="nav-item" onclick="switchPage('map')"><svg viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map View</button>
-<button class="nav-item" onclick="switchPage('history')"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>History</button>
+<button class="nav-item active" data-action="page" data-page="live"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Live Incidents</button>
+<button class="nav-item" data-action="page" data-page="map"><svg viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map View</button>
+<button class="nav-item" data-action="page" data-page="history"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>History</button>
 <div class="nav-section">Admin</div>
-<button class="nav-item" onclick="switchPage('audit')"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Audit Log</button>
-<button class="nav-item" onclick="switchPage('settings')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+<button class="nav-item" data-action="page" data-page="audit"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Audit Log</button>
+<button class="nav-item" data-action="page" data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
 <div class="sidebar-footer"><div class="online-badge"><div class="online-dot"></div>Online &middot; Active</div>
 <button class="logout-btn" onclick="doLogout()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button></div>
@@ -164,7 +164,7 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
       <div class="set-row"><span class="set-label">Role</span><span class="set-val" id="setRole">&mdash;</span></div>
       <div class="field" style="margin-top:14px"><label>Display name</label><input type="text" id="setName" placeholder="Your name"></div>
       <div class="field"><label>City</label><input type="text" id="setCity" placeholder="Your city"></div>
-      <button class="login-btn" style="margin-top:6px" onclick="saveProfile()">Save profile</button>
+      <button class="login-btn" style="margin-top:6px" data-action="save-profile">Save profile</button>
     </div>
 
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px">
@@ -174,7 +174,7 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
       <div class="field"><label>New password</label><input type="password" id="newPass" placeholder="At least 6 characters"></div>
       <div class="field"><label>Confirm new password</label><input type="password" id="newPass2" placeholder="Repeat new password"></div>
       <div id="passMsg" style="display:none;font-size:12px;margin-bottom:10px"></div>
-      <button class="login-btn" onclick="changePassword()">Update password</button>
+      <button class="login-btn" data-action="change-password">Update password</button>
     </div>
 
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px">
@@ -184,6 +184,8 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
   </div>
 </div>
 </div></div>
+<script type="module" src="dispatcher.js"></script>
+<!--
 <script>
 // ============================================================
 //  SafeOut — Dispatch Center
@@ -471,4 +473,7 @@ try{ const _bc=new BroadcastChannel('safeout'); _bc.onmessage=(ev)=>{ if(ev.data
 let _lastSnapshot='';
 setInterval(()=>{ if(!currentUser) return; let snap=''; try{ snap=(localStorage.getItem('safeout_incidents')||'')+'|'+(localStorage.getItem('safeout_contact_count')||''); }catch(e){} if(snap!==_lastSnapshot){ _lastSnapshot=snap; refreshView(); } }, 2000);
 // BACKEND (realtime): replace triggers above with a WebSocket → refreshView().
-document.addEventListener('DOMContentLoaded',()=>{const p=document.getElementById('loginPass');if(p)p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});});</script></body></html>
+document.addEventListener('DOMContentLoaded',()=>{const p=document.getElementById('loginPass');if(p)p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});});
+</script> -->
+</body>
+</html>

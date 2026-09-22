@@ -8,7 +8,7 @@
     "pg": "^8.23.0"
   },
   "scripts": {
-    "migrate": "node-pg-migrate -m src/db/migrations"
+    "migrate": "node-pg-migrate -m src/db/migrations --database-url-var MIGRATION_DB_URL"
   },
   "type": "module"
 }
