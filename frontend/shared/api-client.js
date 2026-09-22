@@ -106,4 +106,6 @@ export const api = {
   addEvidence: (body) => request('POST', ROUTES.evidence, { body, auth: false }), 
 
   toggleLegalHold: (evidenceId, legal_hold) => request('PATCH', `${ROUTES.evidence}/${id(evidenceId)}`, { body: { legal_hold } }),
+
+  recordContactPing: () => request('POST', '/contact-pings', { auth: false }),
 };

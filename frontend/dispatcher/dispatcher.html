@@ -38,6 +38,10 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border)}
 .online-badge{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--teal)}
 .online-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s ease infinite}
+.online-badge.off{color:var(--amber)}
+.online-badge.off .online-dot{background:var(--amber)}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);background:var(--bg4);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 18px;font-size:12px;color:var(--text);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.65)}}
 .logout-btn{display:flex;align-items:center;gap:7px;background:none;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;margin-top:10px;transition:color .15s}
 .logout-btn:hover{color:var(--text2)}
@@ -116,7 +120,6 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 .set-toggle input{width:16px;height:16px;accent-color:var(--burg)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div id="loginScreen"><div class="login-card">
@@ -140,15 +143,15 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
 <button class="nav-item" data-action="page" data-page="audit"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Audit Log</button>
 <button class="nav-item" data-action="page" data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
-<div class="sidebar-footer"><div class="online-badge"><div class="online-dot"></div>Online &middot; Active</div>
-<button class="logout-btn" onclick="doLogout()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button></div>
+<div class="sidebar-footer"><div class="online-badge" id="connBadge"><div class="online-dot"></div><span id="connText">Online &middot; Active</span></div>
+<button class="logout-btn" data-action="logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button></div>
 </div>
 <div class="main">
 <div class="topbar"><div class="topbar-title" id="topbarTitle">Live Incidents</div><div class="topbar-right"><span class="topbar-time" id="topbarTime">&mdash;</span><div class="notif-btn"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><div class="notif-badge" id="notifBadge">0</div></div></div></div>
 <div class="page active" id="page-live">
 <div class="stats-grid"><div class="stat-card"><div class="stat-label">Active now</div><div class="stat-val red" id="statActive">0</div><div class="stat-sub">require action</div></div><div class="stat-card"><div class="stat-label">Acknowledged</div><div class="stat-val amber" id="statAck">0</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Tonight</div><div class="stat-val teal" id="statTonight">0</div><div class="stat-sub">total incidents</div></div><div class="stat-card"><div class="stat-label">Call somebody</div><div class="stat-val blue" id="statContacts">0</div><div class="stat-sub">button used (anonymous)</div></div></div>
 <div class="section-head"><span class="section-title">Active Incidents</span><span class="badge red" id="activeCount">0 pending</span></div>
-<div class="filter-row"><button class="filter-btn active" onclick="filterIncidents('all',this)">All</button><button class="filter-btn" onclick="filterIncidents('emergency',this)">&#128680; Emergency</button><button class="filter-btn" onclick="filterIncidents('escort',this)">&#128682; Escort</button></div>
+<div class="filter-row"><button class="filter-btn active" data-action="filter" data-filter="all">All</button><button class="filter-btn" data-action="filter" data-filter="emergency">&#128680; Emergency</button><button class="filter-btn" data-action="filter" data-filter="escort">&#128682; Escort</button></div>
 <div id="incidentList"></div>
 </div>
 <div class="page" id="page-map"><div id="mapContainer" style="height:340px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:20px"></div><div class="section-head"><span class="section-title">Active locations</span></div><div id="mapIncidentList"></div></div>
@@ -184,296 +187,14 @@ html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;colo
   </div>
 </div>
 </div></div>
-<script type="module" src="dispatcher.js"></script>
-<!--
-<script>
-// ============================================================
-//  SafeOut — Dispatch Center
-//  Secure login (frontend demo). Real incidents read from shared store.
-// ============================================================
-const API_BASE = ''; // TODO: set backend URL, e.g. 'https://api.safeout.ro'
-let authToken = null; // set from POST /auth/login response
-function authHeaders(){ return { 'Content-Type':'application/json', ...(authToken?{'Authorization':'Bearer '+authToken}:{}) }; }
-// BACKEND: replace getIncidents() localStorage with:
-// async function fetchIncidents(){ const r=await fetch(`${API_BASE}/incidents?status=pending,acknowledged`,{headers:authHeaders()}); return (await r.json()).map(toDisplay); }
-
-// ---- Authorised users (frontend demo). Password stored as Base64. ----
-// NOTE: this is NOT real security — anyone can read it in the source.
-// Real auth requires the backend. This just gates the demo UI.
-const AUTHORISED = [
-  // super_admin sees ALL cities. City-scoped dispatchers see only their own city.
-  { email: 'rebeca.berche@sinca.org', pass_b64: 'cmViZWNAMjAwOA==', full_name: 'Rebeca Berche', role: 'super_admin', city: 'Oradea' }
-];
-let ACCOUNT_ROLE='super_admin', ACCOUNT_CITY='Oradea';
-
-let currentUser = null;
-let CITY_COORDS = [47.0722, 21.9217]; // default Oradea; set from dispatcher's city on login
-async function geocodeCity(name){ try{ const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(name)); if(r.ok){ const d=await r.json(); if(d&&d.length) return [parseFloat(d[0].lat),parseFloat(d[0].lon)]; } }catch(e){} return null; }
-let auditEntries = [];
-
-// ---- Shared incident store (same browser bridge with the PWA) ----
-const STORE_KEY = 'safeout_incidents';
-function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }catch(e){ return []; } }
-function saveStore(list){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(list)); }catch(e){} }
-
-// Map stored PWA incidents -> dispatcher display model
-const VENUE_LOOKUP = {}; // qr_code_id -> friendly name (empty until backend)
-function timeAgo(iso){
-  const diff = Math.floor((Date.now() - new Date(iso).getTime())/1000);
-  if(diff < 60) return diff + 's ago';
-  if(diff < 3600) return Math.floor(diff/60) + ' min ago';
-  if(diff < 86400) return Math.floor(diff/3600) + 'h ' + Math.floor((diff%3600)/60) + 'm ago';
-  return Math.floor(diff/86400) + 'd ago';
-}
-function toDisplay(raw){
-  const venueName = raw.venue_name || VENUE_LOOKUP[raw.qr_code_id] || (raw.qr_code_id && raw.qr_code_id !== 'demo' ? ('QR ' + raw.qr_code_id) : 'Unknown location');
-  return {
-    id: raw.id,
-    type: raw.situation_type === 'emergency' ? 'emergency' : raw.situation_type === 'escort' ? 'escort' : 'contact',
-    status: raw.status || 'pending',
-    venue: venueName,
-    placement: raw.placement || '',
-    qr: raw.qr_code_id || '—',
-    fixed: raw.location_method === 'qr_fixed',
-    live: raw.live_tracking === true,
-    time: '',
-    ago: timeAgo(raw.created_at || new Date().toISOString()),
-    message: raw.victim_message || '',
-    lat: raw.latitude, lng: raw.longitude,
-    priority: raw.situation_type === 'emergency' ? 'high' : 'normal',
-    _raw: raw
-  };
-}
-// City scoping: super_admin sees all; a city dispatcher sees only their city's incidents.
-// BACKEND: enforce server-side — the API must only return incidents for the dispatcher's city.
-function getIncidents(){
-  return loadStore()
-    .filter(r=>r.situation_type!=='contact')
-    .filter(r=> ACCOUNT_ROLE==='super_admin' ? true : ((r.city||'')===ACCOUNT_CITY))
-    .map(toDisplay);
-}
-function getContactCount(){ try{ return parseInt(localStorage.getItem('safeout_contact_count'))||0; }catch(e){ return 0; } }
-function updateStoreStatus(id, status){
-  const list = loadStore();
-  const it = list.find(x=>x.id===id);
-  if(it){ it.status = status; if(status==='acknowledged' && !it.acknowledged_at) it.acknowledged_at = new Date().toISOString(); if(status==='resolved'){ it.resolved_at = new Date().toISOString(); if(!it.acknowledged_at) it.acknowledged_at = new Date().toISOString(); } saveStore(list); }
-}
-
-const TYPE_META = {
-  emergency:{label:'112 — Emergency', icon:'\u{1F198}', color:'red'},
-  escort:{label:'Get me out', icon:'\u{1F6AA}', color:'amber'},
-  contact:{label:'Call somebody', icon:'\u{1F4F1}', color:'blue'}
-};
-
-function updateClock(){const el=document.getElementById('topbarTime');if(el){const n=new Date();el.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}}
-updateClock();setInterval(updateClock,30000);
-
-// ---- Secure login ----
-async function doLogin(){
-  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-  const pass = document.getElementById('loginPass').value;
-  // Check hardcoded admin first
-  let match = AUTHORISED.find(u => u.email.toLowerCase() === email);
-  let ok = match && btoa(pass) === match.pass_b64;
-  // Also check dispatchers created in PowerAdmin (stored in localStorage)
-  if(!ok){
-    let created = [];
-    try{ created = JSON.parse(localStorage.getItem('safeout_dispatchers')) || []; }catch(e){}
-    const d = created.find(u => (u.email||'').toLowerCase() === email && u.active !== false);
-    if(d && d.pass_b64 && btoa(pass) === d.pass_b64){
-      match = { email:d.email, full_name:d.name, role:d.role || 'dispatcher', city:d.city };
-      ok = true;
-    }
-  }
-  if(!ok){
-    const err = document.getElementById('loginError');
-    if(err){ err.style.display='block'; }
-    return;
-  }
-  // BACKEND: replace the checks above with:
-  // const r = await fetch(`${API_BASE}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
-  // if(!r.ok){ document.getElementById('loginError').style.display='block'; return; }
-  // const data = await r.json(); authToken = data.access_token; currentUser = data.dispatcher;
-  currentUser = match;
-  ACCOUNT_ROLE = match.role || 'dispatcher';
-  ACCOUNT_CITY = match.city || 'Oradea';
-  if(match.city){ const co=await geocodeCity(match.city); if(co){ CITY_COORDS=co; if(_map) _map.setView(co,14); } }
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appShell').classList.remove('hidden');
-  document.getElementById('dispatcherName').textContent = currentUser.full_name;
-  const dc=document.getElementById('dispatcherCity'); if(dc) dc.textContent = ACCOUNT_ROLE==='super_admin' ? ('All cities · '+ACCOUNT_CITY) : (ACCOUNT_CITY+' · Dispatch');
-  renderIncidents();
-  addAudit('Logged in','blue','Session started for ' + currentUser.full_name);
-}
-function doLogout(){
-  currentUser=null;
-  document.getElementById('appShell').classList.add('hidden');
-  document.getElementById('loginScreen').classList.remove('hidden');
-  const p=document.getElementById('loginPass'); if(p) p.value='';
-}
-
-const PAGE_TITLES={live:'Live Incidents',map:'Map View',history:'History',audit:'Audit Log',settings:'Settings'};
-function switchPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');event.currentTarget.classList.add('active');document.getElementById('topbarTitle').textContent=PAGE_TITLES[id];if(id==='live')renderIncidents();if(id==='history')renderHistory();if(id==='map')renderMapList();if(id==='audit')renderAuditLog();if(id==='settings')renderSettings();}
-
-let activeFilter='all';
-function filterIncidents(type,btn){activeFilter=type;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderIncidents();}
-
-function renderIncidents(){
-  const all = getIncidents();
-  const filtered = all.filter(i=>i.status!=='resolved' && (activeFilter==='all'||i.type===activeFilter));
-  const pending = filtered.filter(i=>i.status==='pending').length;
-  document.getElementById('activeCount').textContent = pending+' pending';
-  document.getElementById('statActive').textContent = pending;
-  document.getElementById('statAck').textContent = filtered.filter(i=>i.status==='acknowledged').length;
-  document.getElementById('statTonight').textContent = all.length;
-  const cc=document.getElementById('statContacts'); if(cc) cc.textContent = getContactCount();
-  document.getElementById('notifBadge').textContent = pending;
-  document.getElementById('incidentList').innerHTML = filtered.length ? filtered.map(incidentCardHTML).join('') :
-    '<div style="text-align:center;color:var(--text3);padding:48px 0;font-size:13px">No active incidents. Alerts from the PWA appear here in real time.</div>';
-}
-
-function incidentCardHTML(inc){
-  const m=TYPE_META[inc.type]||TYPE_META.escort;const isPending=inc.status==='pending';
-  return '<div class="incident-card '+m.color+' '+(inc.status==='resolved'?'resolved':'')+'" id="card-'+inc.id+'"><div class="inc-top"><div class="inc-type"><span class="inc-type-icon">'+m.icon+'</span><span class="inc-type-label">'+m.label+'</span><span class="badge '+m.color+'">'+inc.status.toUpperCase()+'</span></div><span class="inc-time">'+inc.ago+'</span></div><div class="inc-meta"><div class="inc-meta-item"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'+inc.venue+'</div><div class="inc-meta-item"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>QR: '+inc.qr+'</div>'+(inc.fixed?'<div class="inc-meta-item" style="color:var(--teal);font-size:10px">&#128205; exact location</div>':'')+(inc.live?'<div class="inc-meta-item" style="color:#ff5c5c;font-size:10px;font-weight:700">&#128308; LIVE &middot; tracking</div>':'')+'</div>'+(inc.placement?'<div class="inc-msg" style="border-left-color:var(--amber-border);color:var(--amber)">&#128682; '+inc.placement+'</div>':'')+(inc.message?'<div class="inc-msg">"'+inc.message+'"</div>':'')+'<div class="inc-actions">'+(isPending?'<button class="inc-btn primary" onclick="acknowledgeInc(\''+inc.id+'\')">Acknowledge</button>':'')+'<button class="inc-btn danger" onclick="call112(\''+inc.id+'\')">Call 112</button><button class="inc-btn success" onclick="resolveInc(\''+inc.id+'\')">Resolve</button><button class="inc-btn secondary" onclick="toggleNotes(\''+inc.id+'\')">Notes</button></div><div id="notes-'+inc.id+'" style="display:none;margin-top:8px"><textarea class="notes-area" placeholder="Add operational notes..." id="notesText-'+inc.id+'"></textarea><button class="notes-submit" onclick="saveNotes(\''+inc.id+'\')">Save note</button></div></div>';
-}
-
-function acknowledgeInc(id){updateStoreStatus(id,'acknowledged');renderIncidents();addAudit('Acknowledged','amber','Incident '+id.slice(-6)+' taken');
-  // BACKEND: await fetch(`${API_BASE}/incidents/${id}`,{method:'PATCH',headers:authHeaders(),body:JSON.stringify({status:'acknowledged'})});
-}
-function resolveInc(id){updateStoreStatus(id,'resolved');renderIncidents();addAudit('Resolved','teal','Incident '+id.slice(-6)+' closed');
-  // BACKEND: await fetch(`${API_BASE}/incidents/${id}`,{method:'PATCH',headers:authHeaders(),body:JSON.stringify({status:'resolved'})});
-}
-function call112(id){addAudit('Called 112','red','Emergency services notified for '+id.slice(-6));alert('112 — Emergency services notified. Document the outcome in Notes.');
-  // BACKEND: await fetch(`${API_BASE}/incidents/${id}/actions`,{method:'POST',headers:authHeaders(),body:JSON.stringify({action_type:'called_112'})});
-}
-function toggleNotes(id){const el=document.getElementById('notes-'+id);el.style.display=el.style.display==='none'?'block':'none';}
-function saveNotes(id){const text=document.getElementById('notesText-'+id).value.trim();if(!text)return;addAudit('Note added','blue','"'+text.slice(0,40)+(text.length>40?'\u2026':'')+'"');document.getElementById('notes-'+id).style.display='none';}
-
-function renderHistory(){const resolved=getIncidents().filter(i=>i.status==='resolved');document.getElementById('historyList').innerHTML=resolved.length?resolved.map(incidentCardHTML).join(''):'<div style="text-align:center;color:var(--text3);padding:48px 0;font-size:13px">No resolved incidents yet</div>';}
-let _map=null,_markers=[];
-function initMap(){
-  if(_map) return;
-  if(typeof L==='undefined'){ document.getElementById('mapContainer').innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Map library could not load (check connection)</div>'; return; }
-  _map = L.map('mapContainer', {zoomControl:true, attributionControl:false}).setView(CITY_COORDS, 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(_map);
-}
-function renderMapList(){
-  try{ initMap(); }catch(e){ console.error('Map error',e); }
-  setTimeout(()=>{ if(_map){ _map.invalidateSize(); } }, 250);
-  if(_map){ _markers.forEach(m=>_map.removeLayer(m)); _markers=[]; }
-  const active=getIncidents().filter(i=>i.status!=='resolved');
-  const withGeo=active.filter(i=>i.lat&&i.lng);
-  const COLORS={emergency:'#ff6b6b',escort:'#ffb347',contact:'#7b8fff'};
-  if(_map){
-    withGeo.forEach(i=>{
-      const color=COLORS[i.type]||'#7b8fff';
-      const icon=L.divIcon({className:'',html:'<div style="width:16px;height:16px;border-radius:50%;background:'+color+';box-shadow:0 0 0 4px '+color+'33,0 0 0 8px '+color+'1a;border:2px solid #0d0d1a"></div>',iconSize:[16,16],iconAnchor:[8,8]});
-      const m=L.marker([i.lat,i.lng],{icon}).addTo(_map);
-      m.bindPopup('<b>'+(TYPE_META[i.type]||TYPE_META.escort).label+'</b><br>'+i.venue+'<br><span style="color:#888;font-size:11px">'+i.ago+'</span>');
-      _markers.push(m);
-    });
-    if(withGeo.length){ const grp=L.featureGroup(_markers); _map.fitBounds(grp.getBounds().pad(0.3),{maxZoom:15}); }
-  }
-  document.getElementById('mapIncidentList').innerHTML=active.length?active.map(i=>{const m=TYPE_META[i.type]||TYPE_META.escort;return '<div class="incident-card '+m.color+'" style="margin-bottom:8px;cursor:default"><div class="inc-top"><div class="inc-type"><span>'+m.icon+'</span><span class="inc-type-label">'+m.label+'</span><span class="badge '+m.color+'">'+i.status+'</span></div><span class="inc-time">'+i.ago+'</span></div><div class="inc-meta"><div class="inc-meta-item">'+i.venue+'</div></div>'+(i.lat?'<div class="inc-meta"><div class="inc-meta-item" style="font-size:10px;color:var(--text3)">'+i.lat.toFixed(6)+', '+i.lng.toFixed(6)+'</div></div>':'<div class="inc-meta"><div class="inc-meta-item" style="font-size:10px;color:var(--text3)">No GPS location</div></div>')+'</div>';}).join(''):'<div style="text-align:center;color:var(--text3);padding:48px 0;font-size:13px">No active incidents on map</div>';}
-function addAudit(action,color,detail){auditEntries.unshift({action,color,detail,time:new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})});}
-function renderAuditLog(){const el=document.getElementById('auditLog');if(!auditEntries.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:20px">No actions yet this session</div>';return;}el.innerHTML=auditEntries.map(e=>'<div class="log-item"><div class="log-dot '+e.color+'"></div><div class="log-body"><div class="log-action">'+e.action+'</div><div class="log-meta">'+e.detail+' &middot; '+e.time+'</div></div></div>').join('');}
-// ---- SETTINGS (dispatcher self-service) ----
-function renderSettings(){
-  if(!currentUser) return;
-  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
-  const val=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v;};
-  set('setEmail', currentUser.email||'—');
-  set('setRole', currentUser.role||'dispatcher');
-  val('setName', currentUser.full_name||'');
-  val('setCity', ACCOUNT_CITY||'');
-  // load sound preference
-  try{ const s=localStorage.getItem('safeout_pref_sound'); document.getElementById('setSound').checked = (s===null? true : s==='1'); }catch(e){}
-}
-
-// Find the current user's record in the stored dispatchers list (for saving).
-function findMyDispatcherRecord(){
-  try{
-    const list = JSON.parse(localStorage.getItem('safeout_dispatchers')) || [];
-    const idx = list.findIndex(d => (d.email||'').toLowerCase() === (currentUser.email||'').toLowerCase());
-    return { list, idx };
-  }catch(e){ return { list:[], idx:-1 }; }
-}
-
-function saveProfile(){
-  const name = document.getElementById('setName').value.trim();
-  const city = document.getElementById('setCity').value.trim();
-  if(!name){ alert('Display name cannot be empty.'); return; }
-  currentUser.full_name = name;
-  if(city) ACCOUNT_CITY = city;
-  // Persist if this is a created (localStorage) dispatcher. The hardcoded super_admin isn't in that list.
-  const {list, idx} = findMyDispatcherRecord();
-  if(idx>=0){ list[idx].name = name; if(city) list[idx].city = city; try{ localStorage.setItem('safeout_dispatchers', JSON.stringify(list)); }catch(e){} }
-  // update UI
-  document.getElementById('dispatcherName').textContent = name;
-  const dc=document.getElementById('dispatcherCity'); if(dc) dc.textContent = ACCOUNT_ROLE==='super_admin' ? ('All cities · '+ACCOUNT_CITY) : (ACCOUNT_CITY+' · Dispatch');
-  // recenter map on new city
-  if(city){ geocodeCity(city).then(co=>{ if(co){ CITY_COORDS=co; if(_map) _map.setView(co,14); } }); }
-  addAudit('Profile updated','blue','Name/city changed');
-  // BACKEND: PATCH `${API_BASE}/dispatchers/me` { full_name, city }
-  alert('Profile saved.');
-}
-
-function changePassword(){
-  const cur = document.getElementById('curPass').value;
-  const np = document.getElementById('newPass').value;
-  const np2 = document.getElementById('newPass2').value;
-  const msg = document.getElementById('passMsg');
-  const show = (text,ok)=>{ msg.style.display='block'; msg.textContent=text; msg.style.color = ok?'#4ecfaa':'#ff8080'; };
-
-  // Verify current password against stored value
-  let currentHash = null;
-  const {list, idx} = findMyDispatcherRecord();
-  if(idx>=0) currentHash = list[idx].pass_b64;
-  else {
-    // hardcoded super_admin — match against AUTHORISED
-    const a = AUTHORISED.find(u=>u.email.toLowerCase()===(currentUser.email||'').toLowerCase());
-    if(a) currentHash = a.pass_b64;
-  }
-  if(!currentHash || btoa(cur)!==currentHash){ show('Current password is incorrect.',false); return; }
-  if(np.length<6){ show('New password must be at least 6 characters.',false); return; }
-  if(np!==np2){ show('New passwords do not match.',false); return; }
-  if(np===cur){ show('New password must be different from the current one.',false); return; }
-
-  // Save new password
-  if(idx>=0){ list[idx].pass_b64 = btoa(np); try{ localStorage.setItem('safeout_dispatchers', JSON.stringify(list)); }catch(e){} }
-  else {
-    // super_admin is hardcoded — can't truly persist in frontend; inform the user.
-    show('Password updated for this session. (The main admin password is fixed in the demo build; real change comes with the backend.)', true);
-    document.getElementById('curPass').value=''; document.getElementById('newPass').value=''; document.getElementById('newPass2').value='';
-    addAudit('Password changed','amber','Own password updated');
-    return;
-  }
-  // BACKEND: POST `${API_BASE}/dispatchers/me/password` { current_password, new_password }
-  show('Password updated successfully.', true);
-  document.getElementById('curPass').value=''; document.getElementById('newPass').value=''; document.getElementById('newPass2').value='';
-  addAudit('Password changed','amber','Own password updated');
-}
-
-// Save sound preference on toggle
-document.addEventListener('change', (e)=>{
-  if(e.target && e.target.id==='setSound'){ try{ localStorage.setItem('safeout_pref_sound', e.target.checked?'1':'0'); }catch(err){} }
-});
-
-function refreshView(){
-  if(!currentUser) return;
-  const active=document.querySelector('.page.active'); const id=active?active.id:'';
-  if(id==='page-live') renderIncidents();
-  else if(id==='page-history') renderHistory();
-  else if(id==='page-map') renderMapList();
-  else if(id==='page-audit') renderAuditLog();
-  else renderIncidents();
-}
-window.addEventListener('storage',(e)=>{ if(e.key==='safeout_incidents'||e.key==='safeout_contact_count'){ refreshView(); } });
-try{ const _bc=new BroadcastChannel('safeout'); _bc.onmessage=(ev)=>{ if(ev.data==='incident_update') refreshView(); }; }catch(e){}
-let _lastSnapshot='';
-setInterval(()=>{ if(!currentUser) return; let snap=''; try{ snap=(localStorage.getItem('safeout_incidents')||'')+'|'+(localStorage.getItem('safeout_contact_count')||''); }catch(e){} if(snap!==_lastSnapshot){ _lastSnapshot=snap; refreshView(); } }, 2000);
-// BACKEND (realtime): replace triggers above with a WebSocket → refreshView().
-document.addEventListener('DOMContentLoaded',()=>{const p=document.getElementById('loginPass');if(p)p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});});
-</script> -->
+<div id="toast"></div>
+<script 
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+    crossorigin="anonymous">
+  </script>
+  <script type="module" src="../shared/api-client.js"></script>
+  <script type="module" src="../shared/live.js"></script>
+  <script type="module" src="./dispatcher.js"></script>
 </body>
 </html>

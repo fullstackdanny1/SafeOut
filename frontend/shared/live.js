@@ -52,39 +52,75 @@ export function createPoller(task, opts = {}) {
   };
 
   async function run() {
-    clearTimeout(timer); timer = null;
-    if (!running) return;
-    const mine = (ctrl = new AbortController());
-    try {
-      await task(mine.signal);
-      failures = 0; setStatus('ok');
-    } catch (e) {
-      if (mine.signal.aborted) return;                       // superseded by refresh() or stop()
-      if (e && (e.status === 401 || e.status === 403)) { running = false; setStatus('unauthorized'); return; }
-      failures++;
-      if (failures >= offlineAfter) setStatus('offline');
+  clearTimeout(timer); timer = null;
+  if (!running) return;
+  
+  const mine = (ctrl = new AbortController());
+  
+  try {
+    await task(mine.signal);
+    failures = 0; 
+    safeSetStatus('ok');
+  } catch (e) {
+    if (mine.signal.aborted) return; // anulat de refresh() sau stop()
+    
+    if (e && (e.status === 401 || e.status === 403)) { 
+      running = false; 
+      safeSetStatus('unauthorized'); 
+      return; 
     }
-    if (running && ctrl === mine) timer = setTimeout(run, delay());
+    
+    failures++;
+    if (failures >= (offlineAfter || 3)) safeSetStatus('offline');
   }
 
-  const wake = () => { if (running && timer && !document.hidden) run(); };   // only if idle-waiting
-  return {
-    start() {
-      if (running) return;
-      running = true; failures = 0;
-      document.addEventListener('visibilitychange', wake);
-      window.addEventListener('online', wake);
-      run();
-    },
-    stop() {
-      running = false; clearTimeout(timer); timer = null;
-      if (ctrl) ctrl.abort();
-      document.removeEventListener('visibilitychange', wake);
-      window.removeEventListener('online', wake);
-    },
-    refresh() { if (!running) return; if (ctrl) ctrl.abort(); run(); },
-    get status() { return status; },
-  };
+  // Calculăm delay-ul și punem o valoare minimă de siguranță (ex: 3000ms)
+  // Dacă eșuează de mai multe ori, mărim timpul de așteptare (Backoff)
+  let nextDelay = typeof delay === 'function' ? delay() : 3000;
+  if (!nextDelay || nextDelay < 1000) nextDelay = 3000; 
+  if (failures > 0) nextDelay = Math.min(nextDelay * 2, 30000); // Maxim 30 secunde pauză la erori
+
+  if (running && ctrl === mine) {
+    timer = setTimeout(run, nextDelay);
+  }
+}
+
+// Funcție de siguranță pentru a preveni prăbușirea buclei dacă elementele DOM lipsesc
+function safeSetStatus(s) {
+  try {
+    if (typeof setStatus === 'function') setStatus(s);
+  } catch (err) {
+    console.warn('Eroare la actualizarea statusului UI:', err);
+  }
+}
+
+const wake = () => { 
+  if (running && timer && !document.hidden) run(); 
+};
+
+return {
+  start() {
+    if (running) return;
+    running = true; failures = 0;
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('online', wake);
+    run();
+  },
+  stop() {
+    running = false; 
+    clearTimeout(timer); 
+    timer = null;
+    if (ctrl) ctrl.abort();
+    document.removeEventListener('visibilitychange', wake);
+    window.removeEventListener('online', wake);
+  },
+  refresh() { 
+    if (!running) return; 
+    if (ctrl) ctrl.abort(); 
+    run(); 
+  },
+  get status() { return status; },
+};
 }
 
 // ---------- keyed list patching ----------

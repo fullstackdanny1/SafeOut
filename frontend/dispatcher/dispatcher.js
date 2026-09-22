@@ -28,6 +28,60 @@ const S = {
   cityCoords: [47.0722, 21.9217],
 };
 
+// ---------- gestiune audio & sunete ----------
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+document.addEventListener('click', initAudio, { once: true });
+
+function unlockAudio() {
+  initAudio();
+}
+
+function soundOn() {
+  try {
+    return localStorage.getItem('safeout_pref_sound') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
+function beep(freq = 440, type = 'sine', duration = 0.2) {
+  if (!soundOn()) return;
+  if (!audioCtx) return;
+
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (err) {
+    console.warn("Nu s-a putut reda sunetul beep:", err);
+  }
+}
+window.beep = beep;
+
 // ---------- data mapping ----------
 function toDisplay(raw) {
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));   // pg numeric arrives as string
@@ -99,7 +153,7 @@ function renderAll() {
   setText('statActive', pending);
   setText('statAck', active.filter((i) => i.status === 'acknowledged').length);
   setText('statTonight', S.incidents.filter((i) => new Date(i.createdAt).getTime() >= dayAgo).length);
-  setText('statContacts', '\u2014');               // no backend route for contact pings yet
+  setText('statContacts', '\u2014');
   setText('notifBadge', pending);
   const title = (pending ? '(' + pending + ') ' : '') + 'SafeOut \u00b7 Dispatch';
   if (document.title !== title) document.title = title;
@@ -124,13 +178,15 @@ function renderActivePage() {
 function ensureMap() {
   if (S.map) return S.map;
   if (typeof L === 'undefined') {
-    $('mapContainer').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Map library could not load (check connection)</div>';
+    const mapEl = $('mapContainer');
+    if (mapEl) mapEl.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Map library could not load (check connection)</div>';
     return null;
   }
   S.map = L.map('mapContainer', { zoomControl: true, attributionControl: false }).setView(S.cityCoords, 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(S.map);
   return S.map;
 }
+
 function makeMarker(inc) {
   const COLORS = { emergency: '#ff6b6b', escort: '#ffb347', contact: '#7b8fff' };
   const color = COLORS[inc.type] || '#7b8fff';
@@ -141,12 +197,12 @@ function makeMarker(inc) {
   const m = (TYPE_META[inc.type] || TYPE_META.escort).label;
   return L.marker([inc.lat, inc.lng], { icon }).bindPopup('<b>' + esc(m) + '</b><br>' + esc(inc.venue));
 }
+
 function renderMap() {
   const map = ensureMap();
   const active = S.incidents.filter((i) => i.status !== 'resolved');
   if (map) {
     syncMarkers(map, S.markers, active, { key: (i) => i.id, latlng: (i) => (i.lat !== null && i.lng !== null ? [i.lat, i.lng] : null), create: makeMarker });
-    // Fit ONCE (first time there is something to show). Never on later polls: it would fight the dispatcher's pan/zoom.
     if (!S.mapFitted && S.markers.size) {
       map.fitBounds(L.featureGroup([...S.markers.values()]).getBounds().pad(0.3), { maxZoom: 15 });
       S.mapFitted = true;
@@ -180,34 +236,43 @@ const poller = createPoller(async (signal) => {
 }, {
   onStatus(s) {
     const off = s === 'offline';
-    $('connBadge').classList.toggle('off', off);
+    const badge = $('connBadge');
+    if (badge) badge.classList.toggle('off', off);
     setText('connText', off ? 'Reconnecting\u2026' : 'Online \u00b7 Active');
   },
 });
 
 // ---------- session ----------
 let stopAgo = null;
-function showLoginError(msg) { const el = $('loginError'); el.textContent = msg; el.style.display = 'block'; }
+function showLoginError(msg) { const el = $('loginError'); if (el) { el.textContent = msg; el.style.display = 'block'; } }
 
 async function doLogin() {
-  const email = $('loginEmail').value.trim().toLowerCase();
-  const pass = $('loginPass').value;
+  const emailEl = $('loginEmail');
+  const passEl = $('loginPass');
+  if (!emailEl || !passEl) return;
+  const email = emailEl.value.trim().toLowerCase();
+  const pass = passEl.value;
   const btn = document.querySelector('[data-action="login"]');
   if (!email || !pass) { showLoginError('Enter your email and password.'); return; }
-  btn.disabled = true; $('loginError').style.display = 'none';
+  if (btn) btn.disabled = true;
+  const errEl = $('loginError');
+  if (errEl) errEl.style.display = 'none';
   try {
     const data = await api.login(email, pass);
     session.set(data.access_token);
-    $('loginPass').value = '';
+    passEl.value = '';
     startSession(data.dispatcher);
   } catch (e) {
     showLoginError(e.status === 401 ? 'Access denied. Invalid credentials.' : e.status === 0 ? 'Cannot reach the server. Check your connection.' : (e.message || 'Login failed.'));
-  } finally { btn.disabled = false; }
+  } finally { if (btn) btn.disabled = false; }
 }
 
 function startSession(user) {
   S.user = user;
-  $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden');
+  const loginScr = $('loginScreen');
+  const appSh = $('appShell');
+  if (loginScr) loginScr.classList.add('hidden');
+  if (appSh) appSh.classList.remove('hidden');
   setText('dispatcherName', user.full_name);
   setText('dispatcherCity', user.role === 'super_admin' ? 'All cities \u00b7 ' + user.city : user.city + ' \u00b7 Dispatch');
   ['statActive', 'statAck', 'statTonight'].forEach((id) => setText(id, '\u2014'));
@@ -223,10 +288,13 @@ function endSession(msg) {
   session.clear();
   S.user = null; S.incidents = []; S.loaded = false; S.audit = []; S.pending.clear(); S.seen.clear();
   S.markers.forEach((m) => m.remove()); S.markers.clear(); S.mapFitted = false;
-  ['incidentList', 'historyList', 'mapIncidentList', 'auditLog'].forEach((id) => resetList($(id)));   // never show the previous user's data
+  ['incidentList', 'historyList', 'mapIncidentList', 'auditLog'].forEach((id) => resetList($(id)));
   document.title = 'SafeOut \u00b7 Dispatch';
-  $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden');
-  if (msg) showLoginError(msg); else $('loginError').style.display = 'none';
+  const appSh = $('appShell');
+  const loginScr = $('loginScreen');
+  if (appSh) appSh.classList.add('hidden');
+  if (loginScr) loginScr.classList.remove('hidden');
+  if (msg) showLoginError(msg); else { const errEl = $('loginError'); if (errEl) errEl.style.display = 'none'; }
 }
 setUnauthorizedHandler(() => { if (S.user) endSession('Session expired. Please sign in again.'); });
 
@@ -234,7 +302,8 @@ async function boot() {
   if (session.token) {
     try { startSession(await api.me()); return; } catch (e) { session.clear(); }
   }
-  $('loginScreen').classList.remove('hidden');
+  const loginScr = $('loginScreen');
+  if (loginScr) loginScr.classList.remove('hidden');
 }
 
 // ---------- navigation ----------
@@ -242,7 +311,8 @@ function switchPage(id) {
   S.page = id;
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.page === id));
-  $('page-' + id).classList.add('active');
+  const targetPage = $('page-' + id);
+  if (targetPage) targetPage.classList.add('active');
   setText('topbarTitle', PAGE_TITLES[id]);
   if (id === 'settings') renderSettings();
   else if (id === 'audit') { renderAudit(); poller.refresh(); }
@@ -251,9 +321,15 @@ function switchPage(id) {
 }
 
 // ---------- incident actions ----------
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 3200);
+function toast(message) {
+  const t = document.getElementById('toast');
+  if (!t) {
+    console.warn("Elementul #toast nu a fost găsit în DOM:", message);
+    return;
+  }
+  t.textContent = message;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 const errMsg = (e) => (e && e.status === 0 ? 'Cannot reach the server. Try again.' : (e && e.message) || 'Something went wrong.');
 
@@ -261,14 +337,14 @@ async function setStatus(id, status) {
   const inc = S.incidents.find((i) => i.id === id);
   if (!inc || inc.status === status) return;
   const prev = inc.status;
-  inc.status = status; S.pending.set(id, status); renderAll();           // optimistic
+  inc.status = status; S.pending.set(id, status); renderAll();
   try {
     await api.patchIncident(id, { status });
   } catch (e) {
     const cur = S.incidents.find((i) => i.id === id); if (cur) cur.status = prev;
     toast(errMsg(e)); renderAll();
   } finally {
-    S.pending.delete(id); poller.refresh();                               // aborts any in-flight (older) poll, fetches fresh
+    S.pending.delete(id); poller.refresh();
   }
 }
 async function call112(id) {
@@ -288,12 +364,20 @@ async function saveNote(id, card) {
 function renderSettings() {
   const u = S.user; if (!u) return;
   setText('setEmail', u.email || '\u2014'); setText('setRole', u.role || 'dispatcher');
-  $('setName').value = u.full_name || '';
-  const city = $('setCity'); city.value = u.city || ''; city.disabled = u.role !== 'super_admin';   // city drives access scope: not self-service
-  $('setSound').checked = soundOn();
+  const nameInput = $('setName');
+  if (nameInput) nameInput.value = u.full_name || '';
+  const cityInput = $('setCity');
+  if (cityInput) {
+    cityInput.value = u.city || '';
+    cityInput.disabled = u.role !== 'super_admin';
+  }
+  const soundInput = $('setSound');
+  if (soundInput) soundInput.checked = soundOn();
 }
+
 async function saveProfile() {
-  const name = $('setName').value.trim(); const city = $('setCity').value.trim();
+  const name = $('setName') ? $('setName').value.trim() : '';
+  const city = $('setCity') ? $('setCity').value.trim() : '';
   if (!name) { toast('Display name cannot be empty.'); return; }
   const body = { full_name: name };
   if (S.user.role === 'super_admin' && city && city !== S.user.city) body.city = city;
@@ -305,10 +389,13 @@ async function saveProfile() {
     toast('Profile saved.');
   } catch (e) { toast(errMsg(e)); }
 }
+
 async function changePassword() {
-  const cur = $('curPass').value, np = $('newPass').value, np2 = $('newPass2').value;
+  const cur = $('curPass') ? $('curPass').value : '';
+  const np = $('newPass') ? $('newPass').value : '';
+  const np2 = $('newPass2') ? $('newPass2').value : '';
   const msg = $('passMsg');
-  const show = (text, ok) => { msg.style.display = 'block'; msg.textContent = text; msg.style.color = ok ? '#4ecfaa' : '#ff8080'; };
+  const show = (text, ok) => { if (msg) { msg.style.display = 'block'; msg.textContent = text; msg.style.color = ok ? '#4ecfaa' : '#ff8080'; } };
   if (!cur) return show('Enter your current password.', false);
   if (np.length < 6) return show('New password must be at least 6 characters.', false);
   if (np !== np2) return show('New passwords do not match.', false);
@@ -316,28 +403,13 @@ async function changePassword() {
   try {
     await api.changePassword(cur, np);
     show('Password updated successfully.', true);
-    $('curPass').value = ''; $('newPass').value = ''; $('newPass2').value = '';
+    if ($('curPass')) $('curPass').value = '';
+    if ($('newPass')) $('newPass').value = '';
+    if ($('newPass2')) $('newPass2').value = '';
   } catch (e) { show(e.status === 401 || e.status === 403 ? 'Current password is incorrect.' : errMsg(e), false); }
 }
 
-// ---------- sound ----------
-let audioCtx = null;
-function soundOn() { try { const s = localStorage.getItem('safeout_pref_sound'); return s === null || s === '1'; } catch (e) { return true; } }
-function unlockAudio() {   // called from the login click, which counts as the user gesture browsers require
-  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) { /* no audio */ }
-}
-function beep() {
-  if (!audioCtx || !soundOn()) return;
-  const t = audioCtx.currentTime;
-  [880, 660].forEach((f, i) => {
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain(), at = t + i * 0.18;
-    o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.25, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
-    o.connect(g); g.connect(audioCtx.destination); o.start(at); o.stop(at + 0.18);
-  });
-}
-
-// ---------- geocoding (city name -> map center), cached per tab ----------
+// ---------- geocoding ----------
 async function geocodeCity(name) {
   if (!name) return null;
   const key = 'safeout_geo_' + name.toLowerCase();
@@ -348,11 +420,25 @@ async function geocodeCity(name) {
       const d = await r.json();
       if (d && d.length) { const co = [parseFloat(d[0].lat), parseFloat(d[0].lon)]; try { sessionStorage.setItem(key, JSON.stringify(co)); } catch (e) { /* ignore */ } return co; }
     }
-  } catch (e) { /* offline: keep default */ }
+  } catch (e) { /* offline */ }
   return null;
 }
 
-// ---------- events (delegation: no inline handlers, works under a strict CSP) ----------
+// ---------- exports globali pntru HTML ----------
+function filterIncidents(type) {
+  S.filter = type;
+  document.querySelectorAll('.filter-btn').forEach((b) => b.classList.toggle('active', b.dataset.filter === type));
+  renderActivePage();
+}
+
+function doLogout() {
+  endSession();
+}
+
+window.filterIncidents = filterIncidents;
+window.doLogout = doLogout;
+
+// ---------- event delegation ----------
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]'); if (!el) return;
   const card = el.closest('[data-key]'); const id = card ? card.dataset.key : null;
@@ -361,22 +447,25 @@ document.addEventListener('click', (e) => {
     case 'logout': endSession(); break;
     case 'page': switchPage(el.dataset.page); break;
     case 'filter':
-      S.filter = el.dataset.filter;
-      document.querySelectorAll('.filter-btn').forEach((b) => b.classList.toggle('active', b === el));
-      renderActivePage(); break;
+      filterIncidents(el.dataset.filter); break;
     case 'ack': setStatus(id, 'acknowledged'); break;
     case 'resolve': setStatus(id, 'resolved'); break;
     case 'call112': call112(id); break;
-    case 'notes': { const box = card.querySelector('.notes-box'); box.classList.toggle('open'); if (box.classList.contains('open')) box.querySelector('textarea').focus(); break; }
+    case 'notes': { const box = card.querySelector('.notes-box'); if (box) { box.classList.toggle('open'); if (box.classList.contains('open')) { const ta = box.querySelector('textarea'); if (ta) ta.focus(); } } break; }
     case 'save-note': saveNote(id, card); break;
     case 'save-profile': saveProfile(); break;
     case 'change-password': changePassword(); break;
   }
 });
+
 document.addEventListener('change', (e) => {
   if (e.target && e.target.id === 'setSound') { try { localStorage.setItem('safeout_pref_sound', e.target.checked ? '1' : '0'); } catch (err) { /* ignore */ } }
 });
-['loginEmail', 'loginPass'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); }));
+
+['loginEmail', 'loginPass'].forEach((id) => {
+  const el = $(id);
+  if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+});
 
 function updateClock() { const n = new Date(); setText('topbarTime', String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0')); }
 updateClock(); setInterval(updateClock, 30000);

@@ -7,7 +7,15 @@ import { AppError } from '../utils/AppError.js';
 
 const router = express.Router();
 
-// Public — PWA trimite dovada imediat după crearea incidentului (fără autentificare)
+function isValidUrl(string) {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;  
+  }
+}
+
 router.post('/', asyncHandler(async (req, res) => {
   const { incident_id, file_type, storage_url } = req.body;
 
@@ -16,6 +24,9 @@ router.post('/', asyncHandler(async (req, res) => {
   }
   if (!['photo', 'audio'].includes(file_type)) {
     throw new AppError(400, 'Tip invalid', 'file_type trebuie să fie photo sau audio');
+  }
+  if (!isValidUrl(storage_url) && !storage_url.startsWith('/uploads/')) {
+    throw new AppError(400, 'URL Invalid', 'storage_url trebuie să fie o adresă URL validă sau o cale de upload');
   }
 
   const result = await pool.query(

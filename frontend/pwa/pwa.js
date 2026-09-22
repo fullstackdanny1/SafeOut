@@ -18,7 +18,13 @@ const I18N = {
         em_desc: "Location + metadata sent to authorities",
         about_label: "About SafeOut",
         about_desc: "Who we are &middot; how each button works",
-        footer: "dispatch active &middot; confidential"
+        footer: "dispatch active &middot; confidential",
+        confirm_escort_title: "Escort Request",
+        confirm_escort_msg: "Staff will be notified immediately to assist you to the exit.",
+        confirm_em_title: "Emergency Alert",
+        confirm_em_msg: "This will log an emergency alert and prompt to dial 112.",
+        btn_confirm: "Confirm & Send",
+        btn_cancel: "Cancel"
     },
     ro: {
         main_title: "Ai nevoie de<br>ajutor acum?",
@@ -32,11 +38,18 @@ const I18N = {
         em_desc: "Locația + datele trimise autorităților",
         about_label: "Despre SafeOut",
         about_desc: "Cine suntem &middot; cum funcționează fiecare buton",
-        footer: "dispecerat activ &middot; confidențial"
+        footer: "dispecerat activ &middot; confidențial",
+        confirm_escort_title: "Solicitare Escortă",
+        confirm_escort_msg: "Echipa de securitate/personalul va fi notificat imediat.",
+        confirm_em_title: "Alertă de Urgență",
+        confirm_em_msg: "Se va înregistra un incident critic și se va iniția apelul la 112.",
+        btn_confirm: "Confirmă și Trimite",
+        btn_cancel: "Anulează"
     }
 };
 
 let CUR_LANG = 'en';
+let pendingActionType = null;
 
 function setLang(lang) {
     CUR_LANG = (lang === 'ro') ? 'ro' : 'en';
@@ -70,13 +83,29 @@ const QR_ID = new URLSearchParams(window.location.search).get('q') || 'demo';
 let currentQRInfo = null;
 
 async function fetchQRInfo() {
-    if (QR_ID === 'demo') return null;
+    // 1. Evităm cererea la server pentru ID-uri de demo/test local
+    if (QR_ID === 'demo' || QR_ID === 'demo-venue') {
+        currentQRInfo = {
+            id: QR_ID,
+            venue: "Locație Demo (Offline)",
+            placement: "Main Area",
+            city: "București"
+        };
+        return;
+    }
+
+    // 2. Pentru QR-uri reale, apelăm serverul
     try {
-        currentQRInfo = await api.get(`/qr-codes/${QR_ID}`);
-        // Logica optională: marchează ca scanat direct via API dacă vrei statistici per-scan
-        await api.post(`/qr-codes/${QR_ID}/scan`);
+        currentQRInfo = await api.getQr(QR_ID);
     } catch (error) {
-        console.warn('Eroare la încărcarea datelor QR:', error);
+        // Afișăm un mesaj scurt în loc să aruncăm întreaga stivă de erori
+        console.warn('Datele QR nu au fost găsite pe server, se folosește fallback local:', error.message || error);
+        currentQRInfo = {
+            id: QR_ID,
+            venue: "Locație Necunoscută",
+            placement: "Nespecificat",
+            city: "Nespecificat"
+        };
     }
 }
 
@@ -91,7 +120,7 @@ function getLocation() {
     });
 }
 
-// 3. Captură de Dovezi (Evidență Audio/Video/Foto)
+// 3. Captură de Dovezi (Audio/Video/Foto)
 async function capturePhoto(facing) {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing } });
@@ -99,7 +128,7 @@ async function capturePhoto(facing) {
         video.srcObject = stream;
         video.setAttribute('playsinline', '');
         await video.play();
-        await new Promise(r => setTimeout(r, 600)); // focus time
+        await new Promise(r => setTimeout(r, 600));
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
@@ -133,14 +162,15 @@ async function captureAudio(seconds) {
 }
 
 async function uploadEvidence(incidentId, photos, audio) {
+    if (!incidentId) return;
     const uploads = [];
-    if (photos.back) uploads.push(api.addEvidence({ incident_id: incidentId, file_type: 'photo', storage_url: photos.back }));
-    if (photos.front) uploads.push(api.addEvidence({ incident_id: incidentId, file_type: 'photo', storage_url: photos.front }));
+    if (photos && photos.back) uploads.push(api.addEvidence({ incident_id: incidentId, file_type: 'photo', storage_url: photos.back }));
+    if (photos && photos.front) uploads.push(api.addEvidence({ incident_id: incidentId, file_type: 'photo', storage_url: photos.front }));
     if (audio) uploads.push(api.addEvidence({ incident_id: incidentId, file_type: 'audio', storage_url: audio }));
     await Promise.allSettled(uploads);
 }
 
-// 4. Salvare Incident & Navigare (Screens)
+// 4. Salvare Incident & Navigare
 async function recordIncident(type, extra = {}) {
     let loc;
     if (currentQRInfo && currentQRInfo.lat && currentQRInfo.lng) {
@@ -163,8 +193,7 @@ async function recordIncident(type, extra = {}) {
     };
 
     try {
-        const result = await api.post('/incidents', incidentData);
-        return result;
+        return await api.createIncident(incidentData);
     } catch (error) {
         console.error("Eroare la trimiterea incidentului la API:", error);
         return null;
@@ -172,95 +201,153 @@ async function recordIncident(type, extra = {}) {
 }
 
 function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.screen, .view').forEach(s => {
+        s.classList.remove('active');
+        s.classList.add('hidden');
+    });
     const target = document.getElementById(id);
-    if (target) target.classList.add('active');
+    if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('active');
+    }
 }
 
-// 5. Acțiuni și Evenimente Utilitare
-let _pendingAction = null;
-
-window.showConfirm = function(type) {
-    _pendingAction = type;
-    // Logica de actualizare a textelor din ecranul de consens rămâne aceeași
-    const configs = {
-        escort: { header: 'Get me out', btn: 'Alert staff & share location' },
-        contact: { header: 'Call somebody', btn: 'Choose a contact' },
-        '112': { header: 'Emergency — 112', btn: 'Send alert & share data' }
-    };
-    const cfg = configs[type] || configs.escort;
-    
-    const h = document.getElementById('consentHeader');
-    const b = document.getElementById('consentAcceptBtn');
-    if (h) h.textContent = cfg.header;
-    if (b) b.textContent = cfg.btn;
-    
-    showScreen('screen-consent');
-};
-
-window.acceptConsent = async function() {
-    const type = _pendingAction;
-    if (type === 'contact') {
-        openSheet();
-        return;
+function goBack() {
+    const main = document.getElementById('screen-home') || document.getElementById('mainMenu') || document.getElementById('main-menu');
+    if (main) {
+        showScreen(main.id);
+    } else {
+        showScreen('screen-home');
     }
-    
-    if (type === '112') {
+}
+
+// 5. Logica de Modal, Sheet & Confirmare Incident
+function showConfirm(type) {
+    pendingActionType = type;
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl = document.getElementById('confirmMsg');
+    const dict = I18N[CUR_LANG];
+
+    if (type === 'escort') {
+        if (titleEl) titleEl.textContent = dict.confirm_escort_title;
+        if (msgEl) msgEl.textContent = dict.confirm_escort_msg;
+    } else if (type === 'emergency' || type === '112') {
+        if (titleEl) titleEl.textContent = dict.confirm_em_title;
+        if (msgEl) msgEl.textContent = dict.confirm_em_msg;
+    }
+
     showScreen('screen-confirm');
-    const metaLoc = document.getElementById('metaLoc');
-    if (metaLoc) metaLoc.textContent = 'Capturing photos…';
+}
 
-    const photos = await captureBothPhotos();
-    if (metaLoc) metaLoc.textContent = 'Recording audio…';
-    const audio = await captureAudio(5);
-    if (metaLoc) metaLoc.textContent = 'Sending to API…';
+async function confirmAction() {
+    const type = pendingActionType || 'escort';
+    showScreen('screen-success');
 
-    const result = await recordIncident('emergency', {
-        consent_given: true,
-        camera_granted: !!(photos.front || photos.back),
-        mic_granted: !!audio,
-        has_front_photo: !!photos.front,
-        has_back_photo: !!photos.back,
-        has_audio_recording: !!audio
-    });
+    const res = await recordIncident(type);
+    const incidentId = res ? res.id : null;
 
-    if (result && result.id) {
-        if (metaLoc) metaLoc.textContent = 'Uploading evidence…';
-        await uploadEvidence(result.id, photos, audio);
+    if (type === 'emergency' || type === '112') {
+        setTimeout(() => { window.location.href = 'tel:112'; }, 800);
     }
 
-    if (metaLoc) metaLoc.textContent = 'Transmitted';
-    return;
+    if (incidentId) {
+        Promise.all([
+            captureBothPhotos(),
+            captureAudio(5)
+        ]).then(([photos, audio]) => {
+            uploadEvidence(incidentId, photos, audio);
+        }).catch(err => console.warn('Nu s-au putut colecta dovezile media:', err));
     }
-
-    // Default: escort
-    showScreen('screen-confirm');
-    const metaLoc = document.getElementById('metaLoc');
-    if (metaLoc) metaLoc.textContent = 'Acquiring…';
-    await recordIncident('escort', { consent_given: true });
-    if (metaLoc) metaLoc.textContent = 'Alert Sent';
-};
+}
 
 function openSheet() {
-    const overlay = document.getElementById('sheetOverlay');
-    if (overlay) {
-        overlay.classList.add('open');
-        // Aici implementezi logica loadContactsIntoSheet
+    const sheet = document.getElementById('sheetOverlay');
+    if (sheet) {
+        sheet.classList.add('open');
+        loadContactsIntoSheet();
     }
 }
 
-// 6. Hook-uri Evenimente globale & Inițializare
+function closeSheet() {
+    const sheet = document.getElementById('sheetOverlay');
+    if (sheet) sheet.classList.remove('open');
+}
+
+function recordContactPing() {
+    api.recordContactPing().catch(() => {});
+}
+
+async function loadContactsIntoSheet() {
+    const listEl = document.getElementById('contactList');
+    if (!listEl) return;
+    
+    const supported = ('contacts' in navigator && 'ContactsManager' in window);
+    if (!supported) {
+        listEl.innerHTML = `<div style="padding:22px 20px;text-align:center;color:var(--text2);font-size:13px;font-weight:300;line-height:1.6">
+      Dispozitivul tău nu suportă selectarea contactelor direct din browser.<br><br>
+      <span style="color:var(--text3);font-size:12px">Pe Android Chrome vei putea vedea contactele aici. Pe iOS, această funcționalitate nu este încă disponibilă.</span>
+    </div>`;
+        return;
+    }
+    listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text2);font-size:13px">Apasă mai jos pentru a alege din agendă</div>
+    <button class="contact-item" onclick="pickContact()" style="justify-content:center;color:var(--teal)">
+      <div class="contact-info" style="flex:none"><span class="contact-name" style="color:var(--teal)">Deschide agenda de contacte</span></div>
+    </button>`;
+}
+
+async function pickContact() {
+    try {
+        const props = ['name', 'tel'];
+        const opts = { multiple: false };
+        const contacts = await navigator.contacts.select(props, opts);
+        if (contacts && contacts.length) {
+            const chosen = contacts[0];
+            const tel = (chosen.tel && chosen.tel[0]) ? chosen.tel[0].replace(/\s+/g, '') : '';
+            closeSheet();
+
+            showScreen('screen-confirm');
+            const metaLoc = document.getElementById('metaLoc');
+            if (metaLoc) metaLoc.textContent = 'Obținem locația ta...';
+
+            const loc = await getLocation();
+
+            recordContactPing();
+            if (metaLoc) metaLoc.textContent = 'Mesaj pregătit';
+
+            let mapsLink = '';
+            if (loc.lat && loc.lng) mapsLink = ' Locația mea: https://maps.google.com/?q=' + loc.lat + ',' + loc.lng;
+            const body = 'Am nevoie să mă suni ACUM. Sunt într-o situație în care nu mă simt în siguranță.' + mapsLink + ' (Trimis prin SafeOut)';
+
+            if (tel) {
+                const smsHref = 'sms:' + tel + (/(iPhone|iPad|Macintosh)/.test(navigator.userAgent) ? '&' : '?') + 'body=' + encodeURIComponent(body);
+                setTimeout(() => { window.location.href = smsHref; }, 600);
+            }
+        }
+    } catch (e) {
+        closeSheet();
+    }
+}
+
+// 6. Expunere pe window pentru Handlerele Inline (onclick în HTML)
+window.setLang = setLang;
+window.goBack = goBack;
+window.showInfo = () => showScreen('screen-info');
+window.showConfirm = showConfirm;
+window.confirmAction = confirmAction;
+window.openSheet = openSheet;
+window.closeSheet = closeSheet;
+window.pickContact = pickContact;
+
+// 7. Event listeners & Inițializare
 document.addEventListener('DOMContentLoaded', () => {
     initLang();
     fetchQRInfo();
 
-    // Event listeneri pentru butoanele de limbă (dacă există)
     const langROBtn = document.getElementById('langRO');
     const langENBtn = document.getElementById('langEN');
     if (langROBtn) langROBtn.addEventListener('click', () => setLang('ro'));
     if (langENBtn) langENBtn.addEventListener('click', () => setLang('en'));
-    
-    // Disguise logic pe logo
+
     const logoEl = document.querySelector('.logo-img');
     if (logoEl) {
         let tapCount = 0;
