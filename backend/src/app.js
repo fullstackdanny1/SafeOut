@@ -18,6 +18,10 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Pe Render/Railway etc. aplicația stă în spatele unui proxy: fără asta, toți vizitatorii
+// par să aibă același IP și rate limiter-ul i-ar bloca pe toți împreună.
+app.set('trust proxy', 1);
+
 // Dovezile (poze/audio) vin ca data URL-uri base64, deci au nevoie de o limită mai mare
 app.use('/evidence', express.json({ limit: '15mb' }));
 app.use(express.json());
