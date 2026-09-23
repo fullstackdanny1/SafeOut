@@ -17,23 +17,6 @@ let EVIDENCE = [];
 let INCIDENTS = [];
 let pollTimer = null;
 
-// ---- Poartă de Securitate (Gatekeeper) ----
-const SUPER_ADMIN_KEY = 'sinca-2026-safeout';
-
-function checkAccessGate() {
-    const key = new URLSearchParams(window.location.search).get('key');
-    if (key === SUPER_ADMIN_KEY) {
-        try { sessionStorage.setItem('safeout_gate', '1'); } catch (e) {}
-        return true;
-    }
-    try { if (sessionStorage.getItem('safeout_gate') === '1') return true; } catch (e) {}
-    return false;
-}
-
-function showGateBlock() {
-    document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d0d1a;color:#5a5a6a;font-family:system-ui,sans-serif;text-align:center;padding:24px"><div style="font-size:64px;font-weight:700;margin-bottom:8px;color:#2a2a3a">404</div><div style="font-size:15px">Page not found.</div></div>';
-}
-
 // ---- Autentificare ----
 // Intră în aplicație cu un utilizator deja autentificat (după login sau la refresh cu token salvat)
 async function enterApp(user) {
@@ -645,9 +628,11 @@ window.downloadQR = function(idx) {
 
 // Inițializare aplicație
 document.addEventListener('DOMContentLoaded', () => {
-    if (!checkAccessGate()) { showGateBlock(); return; }
-    const p = document.getElementById('loginPass');
-    if (p) p.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    // Accesul e protejat de login (doar conturi super_admin), nu de o cheie în URL
+    ['loginEmail', 'loginPass'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    });
 
     // Refresh cu token încă valid => rămânem logați
     if (session.token) {

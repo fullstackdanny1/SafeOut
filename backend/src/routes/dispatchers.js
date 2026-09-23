@@ -27,20 +27,22 @@ router.get('/me', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/me', authenticate, asyncHandler(async (req, res) => {
-  const { full_name } = req.body;
-  // Orașul decide ce incidente vede dispecerul (RLS), deci doar super_admin și-l poate schimba
-  const city = req.dispatcher.role === 'super_admin' ? req.body.city : undefined;
-  if (!full_name && !city) {
-    throw new AppError(400, 'Date lipsă', 'Trebuie trimis cel puțin full_name sau city');
+  // Doar numele se poate schimba de aici. Orașul decide ce incidente vede dispecerul (RLS)
+  // și e stabilit de administrator la crearea contului.
+  if (req.body.city !== undefined) {
+    throw new AppError(403, 'Acțiune interzisă', 'Orașul contului nu poate fi schimbat din profil');
+  }
+  const full_name = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  if (!full_name) {
+    throw new AppError(400, 'Date lipsă', 'full_name este obligatoriu');
   }
 
   const result = await pool.query(
     `UPDATE dispatchers
-     SET full_name = COALESCE($1, full_name),
-         city = COALESCE($2, city)
-     WHERE id = $3
+     SET full_name = $1
+     WHERE id = $2
      RETURNING id, email, full_name, city, role`,
-    [full_name ?? null, city ?? null, req.dispatcher.id]
+    [full_name, req.dispatcher.id]
   );
   res.json(result.rows[0]);
 }));

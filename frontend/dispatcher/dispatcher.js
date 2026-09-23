@@ -409,23 +409,16 @@ function renderSettings() {
   setText('setEmail', u.email || '\u2014'); setText('setRole', u.role || 'dispatcher');
   const nameInput = $('setName');
   if (nameInput) nameInput.value = u.full_name || '';
-  const cityInput = $('setCity');
-  if (cityInput) {
-    cityInput.value = u.city || '';
-    cityInput.disabled = u.role !== 'super_admin';
-  }
+  setText('setCityVal', u.city || '\u2014');
   const soundInput = $('setSound');
   if (soundInput) soundInput.checked = soundOn();
 }
 
 async function saveProfile() {
   const name = $('setName') ? $('setName').value.trim() : '';
-  const city = $('setCity') ? $('setCity').value.trim() : '';
   if (!name) { toast('Display name cannot be empty.'); return; }
-  const body = { full_name: name };
-  if (S.user.role === 'super_admin' && city && city !== S.user.city) body.city = city;
   try {
-    const updated = await api.patchMe(body);
+    const updated = await api.patchMe({ full_name: name });
     S.user = { ...S.user, ...updated };
     setText('dispatcherName', S.user.full_name);
     setText('dispatcherCity', S.user.role === 'super_admin' ? 'All cities \u00b7 ' + S.user.city : S.user.city + ' \u00b7 Dispatch');
