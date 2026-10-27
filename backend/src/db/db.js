@@ -11,6 +11,8 @@ export const pool = new Pool({
 
 pool.query('SELECT current_user, current_database()').then(r => {
   console.log('Node se conectează ca:', r.rows[0]);
+}).catch(err => {
+  console.error('Nu mă pot conecta la baza de date:', err.message);
 });
 
 pool.on('error', (err) => {

@@ -52,75 +52,41 @@ export function createPoller(task, opts = {}) {
   };
 
   async function run() {
-  clearTimeout(timer); timer = null;
-  if (!running) return;
-  
-  const mine = (ctrl = new AbortController());
-  
-  try {
-    await task(mine.signal);
-    failures = 0; 
-    safeSetStatus('ok');
-  } catch (e) {
-    if (mine.signal.aborted) return; // anulat de refresh() sau stop()
-    
-    if (e && (e.status === 401 || e.status === 403)) { 
-      running = false; 
-      safeSetStatus('unauthorized'); 
-      return; 
+    clearTimeout(timer); timer = null;
+    if (!running) return;
+    const mine = (ctrl = new AbortController());
+    try {
+      await task(mine.signal);
+      failures = 0; setStatus('ok');
+    } catch (e) {
+      if (mine.signal.aborted) return;                       // cancelled by refresh() / stop()
+      if (e && (e.status === 401 || e.status === 403)) { running = false; setStatus('unauthorized'); return; }
+      failures++;
+      if (failures >= offlineAfter) setStatus('offline');
+      else console.warn('Poll failed:', e);
     }
-    
-    failures++;
-    if (failures >= (offlineAfter || 3)) safeSetStatus('offline');
+    if (running && ctrl === mine) timer = setTimeout(run, delay());   // delay() already applies the backoff
   }
 
-  // Calculăm delay-ul și punem o valoare minimă de siguranță (ex: 3000ms)
-  // Dacă eșuează de mai multe ori, mărim timpul de așteptare (Backoff)
-  let nextDelay = typeof delay === 'function' ? delay() : 3000;
-  if (!nextDelay || nextDelay < 1000) nextDelay = 3000; 
-  if (failures > 0) nextDelay = Math.min(nextDelay * 2, 30000); // Maxim 30 secunde pauză la erori
+  const wake = () => { if (running && timer && !document.hidden) run(); };
 
-  if (running && ctrl === mine) {
-    timer = setTimeout(run, nextDelay);
-  }
-}
-
-// Funcție de siguranță pentru a preveni prăbușirea buclei dacă elementele DOM lipsesc
-function safeSetStatus(s) {
-  try {
-    if (typeof setStatus === 'function') setStatus(s);
-  } catch (err) {
-    console.warn('Eroare la actualizarea statusului UI:', err);
-  }
-}
-
-const wake = () => { 
-  if (running && timer && !document.hidden) run(); 
-};
-
-return {
-  start() {
-    if (running) return;
-    running = true; failures = 0;
-    document.addEventListener('visibilitychange', wake);
-    window.addEventListener('online', wake);
-    run();
-  },
-  stop() {
-    running = false; 
-    clearTimeout(timer); 
-    timer = null;
-    if (ctrl) ctrl.abort();
-    document.removeEventListener('visibilitychange', wake);
-    window.removeEventListener('online', wake);
-  },
-  refresh() { 
-    if (!running) return; 
-    if (ctrl) ctrl.abort(); 
-    run(); 
-  },
-  get status() { return status; },
-};
+  return {
+    start() {
+      if (running) return;
+      running = true; failures = 0;
+      document.addEventListener('visibilitychange', wake);
+      window.addEventListener('online', wake);
+      run();
+    },
+    stop() {
+      running = false; clearTimeout(timer); timer = null;
+      if (ctrl) ctrl.abort();
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('online', wake);
+    },
+    refresh() { if (!running) return; if (ctrl) ctrl.abort(); run(); },
+    get status() { return status; },
+  };
 }
 
 // ---------- keyed list patching ----------

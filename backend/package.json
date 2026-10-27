@@ -1,4 +1,13 @@
 {
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node src/app.js",
+    "migrate": "node scripts/migrate.js",
+    "create-admin": "node scripts/create-admin.js"
+  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
@@ -7,9 +16,5 @@
     "jsonwebtoken": "^9.0.3",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0"
-  },
-  "scripts": {
-    "migrate": "node-pg-migrate -m src/db/migrations --database-url-var MIGRATION_DB_URL"
-  },
-  "type": "module"
+  }
 }

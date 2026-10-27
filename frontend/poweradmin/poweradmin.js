@@ -1,4 +1,5 @@
-import { api, session } from '../shared/api-client.js';
+import { api, session, setUnauthorizedHandler } from '../shared/api-client.js';
+import { esc } from '../shared/live.js';
 
 // ============================================================
 // SafeOut — PowerAdmin (Panou SuperAdmin / ONG)
@@ -14,81 +15,88 @@ let DISPATCHERS = [];
 let QRCODES = [];
 let EVIDENCE = [];
 let INCIDENTS = [];
-
-// ---- Poartă de Securitate (Gatekeeper) ----
-const SUPER_ADMIN_KEY = 'sinca-2026-safeout';
-
-function checkAccessGate() {
-    const key = new URLSearchParams(window.location.search).get('key');
-    if (key === SUPER_ADMIN_KEY) {
-        try { sessionStorage.setItem('safeout_gate', '1'); } catch (e) {}
-        return true;
-    }
-    try { if (sessionStorage.getItem('safeout_gate') === '1') return true; } catch (e) {}
-    return false;
-}
-
-function showGateBlock() {
-    document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d0d1a;color:#5a5a6a;font-family:system-ui,sans-serif;text-align:center;padding:24px"><div style="font-size:64px;font-weight:700;margin-bottom:8px;color:#2a2a3a">404</div><div style="font-size:15px">Page not found.</div></div>';
-}
+let pollTimer = null;
 
 // ---- Autentificare ----
+// Intră în aplicație cu un utilizator deja autentificat (după login sau la refresh cu token salvat)
+async function enterApp(user) {
+    ACCOUNT_CITY = user.city;
+    ACCOUNT_ROLE = user.role;
+
+    const orgCity = document.getElementById('orgCity');
+    if (orgCity) orgCity.textContent = `All cities · ${ACCOUNT_CITY}`;
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
+
+    geocodeCity(ACCOUNT_CITY).then(coords => { if (coords) ACCOUNT_CITY_COORDS = coords; });
+
+    await loadAllData();
+    renderAll();
+    clearInterval(pollTimer);
+    pollTimer = setInterval(pollLiveData, 5000);
+}
+
 window.doLogin = async function() {
     const email = document.getElementById('loginEmail').value.trim().toLowerCase();
     const pass = document.getElementById('loginPass').value;
     const err = document.getElementById('loginError');
+    const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
 
+    if (!email || !pass) { showErr('Introdu emailul și parola.'); return; }
+
+    let data;
     try {
-        const data = await api.login(email, pass);
-        session.set(data.access_token);
-
-        ACCOUNT_CITY = data.dispatcher.city;
-        ACCOUNT_ROLE = data.dispatcher.role;
-
-        if (ACCOUNT_ROLE !== 'super_admin') {
-            if (err) { err.textContent = 'Acces permis doar administratorilor.'; err.style.display = 'block'; }
-            session.clear();
-            return;
-        }
-
-        const coords = await geocodeCity(ACCOUNT_CITY);
-        if (coords) ACCOUNT_CITY_COORDS = coords;
-
-        const orgCity = document.getElementById('orgCity');
-        if (orgCity) orgCity.textContent = `All cities · ${ACCOUNT_CITY}`;
-
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appShell').classList.remove('hidden');
-        if (err) err.style.display = 'none';
-
-        await loadAllData();
-        renderAll();
-        setInterval(pollLiveData, 5000);
-
+        data = await api.login(email, pass);
     } catch (error) {
-        console.error('Login failed:', error);
-        if (err) { err.textContent = 'Date de autentificare incorecte.'; err.style.display = 'block'; }
+        showErr(error.status === 401 ? 'Date de autentificare incorecte.'
+              : error.status === 0 ? 'Serverul nu poate fi contactat.'
+              : (error.message || 'Autentificare eșuată.'));
+        return;
     }
+
+    if (data.dispatcher.role !== 'super_admin') {
+        showErr('Acces permis doar administratorilor.');
+        return;
+    }
+    session.set(data.access_token);
+    if (err) err.style.display = 'none';
+    await enterApp(data.dispatcher);
 };
 
 window.doLogout = function() {
+    clearInterval(pollTimer); pollTimer = null;
     session.clear();
+    VENUES = []; DISPATCHERS = []; QRCODES = []; EVIDENCE = []; INCIDENTS = [];
     document.getElementById('appShell').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
     const p = document.getElementById('loginPass');
     if (p) p.value = '';
 };
 
+// Token expirat (după 8h) => înapoi la login, nu un panou care arată date vechi
+setUnauthorizedHandler(() => {
+    if (!pollTimer) return;
+    window.doLogout();
+    const err = document.getElementById('loginError');
+    if (err) { err.textContent = 'Sesiunea a expirat. Autentifică-te din nou.'; err.style.display = 'block'; }
+});
+
 // ---- Încărcare Date din API ----
+let CONTACT_PINGS = 0;
+
 async function loadAllData() {
     try {
-        [VENUES, DISPATCHERS, QRCODES, EVIDENCE, INCIDENTS] = await Promise.all([
+        let contacts;
+        [VENUES, DISPATCHERS, QRCODES, EVIDENCE, INCIDENTS, contacts] = await Promise.all([
             api.listVenues().catch(() => []),
             api.listDispatchers().catch(() => []),
             api.listQrcodes().catch(() => []),
             api.listEvidence().catch(() => []),
-            api.listIncidents().catch(() => [])
+            api.listIncidents().catch(() => []),
+            api.contactStats().catch(() => null)
         ]);
+        if (contacts) CONTACT_PINGS = contacts.total;
     } catch (e) {
         console.warn('Eroare la încărcarea datelor inițiale', e);
     }
@@ -98,6 +106,8 @@ async function pollLiveData() {
     try {
         INCIDENTS = await api.listIncidents().catch(() => INCIDENTS);
         EVIDENCE = await api.listEvidence().catch(() => EVIDENCE);
+        const contacts = await api.contactStats().catch(() => null);
+        if (contacts) CONTACT_PINGS = contacts.total;
         refreshPA();
     } catch (e) { /* ignore, se reîncearcă la următorul tick */ }
 }
@@ -109,7 +119,9 @@ window.switchPage = function(id, event) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`page-${id}`).classList.add('active');
-    if(event && event.currentTarget) event.currentTarget.classList.add('active');
+    // butoanele din sidebar apelează switchPage('x') fără event, deci găsim itemul după id
+    const navItem = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
+    if (navItem) navItem.classList.add('active');
     document.getElementById('topbarTitle').textContent = TITLES[id];
     
     if (id === 'dashboard') renderDashboard();
@@ -135,6 +147,7 @@ function refreshPA() {
     if (id === 'page-dashboard') renderDashboard();
     else if (id === 'page-evidence') renderEvidence();
     else if (id === 'page-analytics') renderAnalytics();
+    else if (id === 'page-reports') renderReport();
 }
 
 const empty = (msg) => `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:36px 0;font-size:13px">${msg}</td></tr>`;
@@ -151,6 +164,10 @@ function renderDashboard() {
     
     const em = document.getElementById('paEmergency'); if (em) em.textContent = emergency;
     const rr = document.getElementById('paResRate'); if (rr) rr.textContent = INCIDENTS.length ? Math.round(resolved / INCIDENTS.length * 100) + '%' : '—';
+    const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.textContent = v; };
+    set('paTypeEmergency', emergency);
+    set('paTypeEscort', INCIDENTS.filter(i => i.situation_type === 'escort').length);
+    set('paTypeContact', CONTACT_PINGS);
     
     renderCharts(INCIDENTS);
 }
@@ -160,9 +177,9 @@ function renderVenues() {
     document.getElementById('venuesTable').innerHTML = vs.length ? vs.map(v => {
         const count = v.id ? QRCODES.filter(q => q.venue_id === v.id).length : 0;
         return `<tr>
-            <td class="cell-main">${v.name}</td>
-            <td style="text-transform:capitalize">${v.type}</td>
-            <td>${v.city || ''}</td>
+            <td class="cell-main">${esc(v.name)}</td>
+            <td style="text-transform:capitalize">${esc(v.type || '—')}</td>
+            <td>${esc(v.city || '')}</td>
             <td>${count} codes</td>
             <td><span class="status-pill ${v.active ? 'active' : 'inactive'}">${v.active ? 'Active' : 'Inactive'}</span></td>
             <td>
@@ -176,11 +193,11 @@ function renderVenues() {
 function renderDispatchers() {
     document.getElementById('dispatchersTable').innerHTML = DISPATCHERS.length ? DISPATCHERS.map(d => 
         `<tr>
-            <td class="cell-main">${d.name || d.full_name}</td>
-            <td style="color:var(--text2)">${d.email}</td>
-            <td>${d.city || '—'}</td>
-            <td style="text-transform:capitalize">${d.role}</td>
-            <td><span class="status-pill ${d.active ? 'active' : 'inactive'}">${d.active ? 'Active' : 'Suspended'}</span></td>
+            <td class="cell-main">${esc(d.full_name)}</td>
+            <td style="color:var(--text2)">${esc(d.email)}</td>
+            <td>${esc(d.city || '—')}</td>
+            <td style="text-transform:capitalize">${esc(String(d.role).replace('_', ' '))}</td>
+            <td><span class="status-pill active">Active</span></td>
             <td><button class="table-action" onclick="deleteDispatcher('${d.id}')">Delete</button></td>
         </tr>`
     ).join('') : empty('No dispatchers yet.');
@@ -196,17 +213,18 @@ function renderQR() {
     }
 
     grid.innerHTML = list.map((q, idx) => {
-        const locBadge = (q.lat && q.lng) ? '<div style="font-size:9px;color:var(--teal);margin-bottom:8px">&#128205; Fixed location</div>' : '<div style="font-size:9px;color:var(--text3);margin-bottom:8px">&#128225; GPS (street)</div>';
-        const place = q.placement ? `<div class="qr-venue">${q.placement}</div>` : '';
-        const cityTag = q.city ? `<div style="font-size:9px;color:var(--text3)">${q.city}</div>` : '';
+        const locBadge = (q.latitude !== null && q.longitude !== null) ? '<div style="font-size:9px;color:var(--teal);margin-bottom:8px">&#128205; Fixed location</div>' : '<div style="font-size:9px;color:var(--text3);margin-bottom:8px">&#128225; GPS (street)</div>';
+        const place = q.placement ? `<div class="qr-venue">${esc(q.placement)}</div>` : '';
+        const cityTag = q.city ? `<div style="font-size:9px;color:var(--text3)">${esc(q.city)}</div>` : '';
+        const inactive = q.active ? '' : '<div style="font-size:9px;color:var(--amber, #ffb347);margin-bottom:6px">Inactive</div>';
         return `<div class="qr-card">
             <div class="qr-visual" id="qrimg-${idx}"></div>
-            <div class="qr-code-label">${q.code}</div>
-            <div class="qr-venue">${q.venue || q.venue_name}</div>
-            ${place}${cityTag}${locBadge}
+            <div class="qr-code-label">${esc(q.code)}</div>
+            <div class="qr-venue">${esc(q.venue_name || '—')}</div>
+            ${place}${cityTag}${locBadge}${inactive}
             <div class="qr-scans">${q.scans || 0} scans</div>
-            <button class="table-action" onclick="downloadQR(${idx}, '${q.code}')">Download PNG</button>
-            <button class="table-action" onclick="deleteQR('${q.id}')">Delete</button>
+            <button class="table-action" onclick="downloadQR(${idx})">Download PNG</button>
+            <button class="table-action" onclick="toggleQR(${q.id}, ${!q.active})">${q.active ? 'Deactivate' : 'Activate'}</button>
         </div>`;
     }).join('');
 
@@ -227,8 +245,8 @@ function renderEvidence() {
         const type = e.file_type || 'file';
         const viewBtn = `<button class="table-action" onclick="${type === 'audio' ? 'playEvidence' : 'viewEvidence'}('${e.id}')">${type === 'audio' ? 'Play' : 'View'}</button>`;
         return `<tr>
-            <td class="cell-main">#${inc}</td>
-            <td style="text-transform:capitalize">${type}</td>
+            <td class="cell-main">#${esc(inc)}</td>
+            <td style="text-transform:capitalize">${esc(type)}</td>
             <td style="color:var(--text2)">${new Date(e.uploaded_at).toLocaleDateString()}</td>
             <td><span class="status-pill ${hold ? 'active' : 'inactive'}">${hold ? 'Legal hold' : 'None'}</span></td>
             <td>${viewBtn}<button class="table-action" onclick="toggleHold('${e.id}', ${!hold})">${hold ? 'Release' : 'Hold'}</button></td>
@@ -239,11 +257,20 @@ function renderEvidence() {
 }
 
 window.viewEvidence = async function(evidenceId) {
+    // Deschidem fereastra sincron (altfel popup blocker-ul o blochează după await)
+    const win = window.open('', '_blank');
     try {
         const item = await api.getEvidence(evidenceId);
-        const win = window.open('');
-        win.document.write(`<img src="${item.storage_url}" style="max-width:100%">`);
-    } catch (e) { alert('Eroare la încărcarea dovezii.'); }
+        if (!win) { alert('Permite ferestrele pop-up pentru a vedea dovada.'); return; }
+        win.document.title = `Evidence #${item.id}`;
+        const img = win.document.createElement('img');
+        img.src = item.storage_url;
+        img.style.maxWidth = '100%';
+        win.document.body.appendChild(img);
+    } catch (e) {
+        if (win) win.close();
+        alert('Eroare la încărcarea dovezii.');
+    }
 };
 
 window.playEvidence = async function(evidenceId) {
@@ -266,6 +293,16 @@ function renderReport() {
 }
 
 // ---- Grafice & Analize ----
+function barChart(elId, entries) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!entries.length) { el.innerHTML = '<div style="margin:auto;color:var(--text3);font-size:12px">No data yet</div>'; return; }
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    el.innerHTML = entries.map(([label, v]) =>
+        `<div class="bar-col" title="${esc(label)}: ${v}"><div class="bar" style="height:${v / max * 100}%"></div><div class="bar-label">${esc(label)}</div></div>`
+    ).join('');
+}
+
 function renderCharts(incidents) {
     const now = Date.now(); const weekMs = 7 * 24 * 3600 * 1000;
     const weeks = new Array(8).fill(0);
@@ -291,7 +328,25 @@ function renderAnalytics() {
     set('anResRate', scoped.length ? Math.round(resolved / scoped.length * 100) + '%' : '—');
     set('anEmergency', emergency);
     set('anScans', totalScans);
-    // Extinde logica analiticelor la nevoie
+    const acked = scoped.filter(i => i.acknowledged_at && i.created_at);
+    const avgSec = acked.length
+        ? acked.reduce((s, i) => s + (new Date(i.acknowledged_at) - new Date(i.created_at)) / 1000, 0) / acked.length
+        : null;
+    set('anAvgResp', avgSec === null ? '—' : avgSec < 60 ? Math.round(avgSec) + 's' : Math.round(avgSec / 60) + ' min');
+
+    // Scanări pe tip de locație (QR-urile fără locație = stradă / public)
+    const byType = {};
+    scopedQRs.forEach(q => {
+        const venue = VENUES.find(v => v.id === q.venue_id);
+        const type = venue ? (venue.type || 'other') : 'street';
+        byType[type] = (byType[type] || 0) + (q.scans || 0);
+    });
+    barChart('venueTypeChart', Object.entries(byType).sort((a, b) => b[1] - a[1]));
+
+    // Ore de vârf: incidente pe intervale de 3 ore
+    const buckets = new Array(8).fill(0);
+    scoped.forEach(i => { buckets[Math.floor(new Date(i.created_at).getHours() / 3)]++; });
+    barChart('hoursChart', scoped.length ? buckets.map((v, b) => [String(b * 3).padStart(2, '0') + 'h', v]) : []);
 }
 
 // ---- Geocoding ----
@@ -308,7 +363,7 @@ async function geocodeCity(cityName) {
 
 // ---- Operațiuni CRUD (API Calls) ----
 window.editVenue = async function(id) {
-    const v = VENUES.find(x => x.id === id); if (!v) return;
+    const v = VENUES.find(x => String(x.id) === String(id)); if (!v) return;
     const name = prompt('Venue name:', v.name); if (!name) return;
     const type = prompt('Type:', v.type);
 
@@ -316,7 +371,7 @@ window.editVenue = async function(id) {
         await api.updateVenue(id, { name: name.trim(), type: type?.trim() || v.type });
         VENUES = await api.listVenues();
         renderVenues();
-    } catch (e) { alert("Eroare la actualizarea locației."); }
+    } catch (e) { alert(e.message || "Eroare la actualizarea locației."); }
 };
 
 window.deleteVenue = async function(id) {
@@ -334,19 +389,18 @@ window.deleteDispatcher = async function(dispatcherId) {
         await api.deleteDispatcher(dispatcherId);
         DISPATCHERS = await api.listDispatchers();
         renderDispatchers();
-    } catch (e) { alert("Eroare la ștergerea dispecerului."); }
+    } catch (e) { alert(e.message || "Eroare la ștergerea dispecerului."); }
 };
 
-/*window.deleteQR = async function(id) {
-    if (!confirm('Delete QR code?')) return;
+// Codurile QR nu se șterg (incidentele vechi le referă) — doar se activează / dezactivează
+window.toggleQR = async function(qrId, active) {
+    if (!active && !confirm('Deactivate this QR code? Scanning it will no longer work.')) return;
     try {
-        await api.delete(`/qrcodes/${id}`);
-        await loadAllData();
+        await api.toggleQrActive(qrId, active);
+        QRCODES = await api.listQrcodes();
         renderQR();
-    } catch (e) { alert("Eroare la ștergerea codului QR."); }
-};*/
-
-window.deleteQR = null; // dezactivat intenționat — folosește toggleHold pe rândul de QR pentru a dezactiva, nu șterge
+    } catch (e) { alert(e.message || 'Eroare la modificarea codului QR.'); }
+};
 
 window.toggleHold = async function(evidenceId, newState) {
     try {
@@ -376,7 +430,7 @@ window.openModal = function(type) {
   document.getElementById('modalFields').innerHTML = cfg.fields.map((f, idx) => {
     if (f[1] === 'venueselect') {
       const vs = ACCOUNT_ROLE === 'super_admin' ? VENUES : VENUES.filter(v => (v.city || '') === ACCOUNT_CITY);
-      const opts = vs.map(v => `<option value="${v.id}">${v.name} (${v.city || '?'})</option>`).join('');
+      const opts = vs.map(v => `<option value="${v.id}">${esc(v.name)} (${esc(v.city || '?')})</option>`).join('');
       return `<div class="field"><label>Venue</label><select id="mf-${idx}" class="modal-select" onchange="onVenueSelect(this.value)"><option value="">— Choose a venue —</option>${opts}<option value="__street__">Street / public (pin manually)</option></select></div>`;
     }
     if (f[1] === 'map') {
@@ -495,25 +549,97 @@ window.submitModal = async function() {
   }
 };
 
+// ---- Export ----
+function downloadFile(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function toCSV(rows) {
+  const cell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\n');   // BOM => Excel citește corect diacriticele
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+function exportIncidentsCSV() {
+  const cols = ['id', 'created_at', 'situation_type', 'status', 'city', 'venue_name', 'placement', 'latitude', 'longitude',
+                'location_method', 'live_tracking', 'acknowledged_at', 'resolved_at', 'evidence_count', 'notes'];
+  downloadFile(`safeout-incidents-${today()}.csv`, toCSV([cols, ...INCIDENTS.map(i => cols.map(c => i[c]))]), 'text/csv;charset=utf-8');
+}
+
+// Rezumat agregat pe oraș (fără date personale) — pentru raportarea către ANITP
+function exportSummaryCSV() {
+  const cities = [...new Set(INCIDENTS.map(i => i.city))].sort();
+  const rows = [['city', 'total_incidents', 'emergency_112', 'escort', 'resolved', 'avg_minutes_to_acknowledge']];
+  cities.forEach(city => {
+    const list = INCIDENTS.filter(i => i.city === city);
+    const acked = list.filter(i => i.acknowledged_at);
+    const avg = acked.length ? acked.reduce((s, i) => s + (new Date(i.acknowledged_at) - new Date(i.created_at)), 0) / acked.length / 60000 : null;
+    rows.push([city, list.length, list.filter(i => i.situation_type === 'emergency').length,
+               list.filter(i => i.situation_type === 'escort').length, list.filter(i => i.status === 'resolved').length,
+               avg === null ? '' : avg.toFixed(1)]);
+  });
+  downloadFile(`safeout-summary-${today()}.csv`, toCSV(rows), 'text/csv;charset=utf-8');
+}
+
+// PDF: deschidem raportul într-o fereastră curată și folosim „Save as PDF” din dialogul de print
+function exportReportPDF() {
+  renderReport();
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite ferestrele pop-up pentru a genera raportul.'); return; }
+  const val = (id) => esc((document.getElementById(id) || {}).textContent || '—');
+  const rows = [['Total incidents', 'rTotal'], ['Emergency escalations', 'rEmergency'], ['Resolved', 'rResolved'],
+                ['Active venues', 'rVenues'], ['Registered dispatchers', 'rDispatchers']];
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>SafeOut report ${today()}</title>
+    <style>body{font-family:system-ui,sans-serif;padding:40px;color:#111}h1{font-size:22px;margin-bottom:4px}
+    p{color:#666;margin-top:0}table{border-collapse:collapse;width:100%;max-width:520px;margin-top:24px}
+    td{border-bottom:1px solid #ddd;padding:10px 4px}td:last-child{text-align:right;font-weight:600}</style></head>
+    <body><h1>SafeOut — ${val('reportTitle').replace('Report preview — ', 'Report ')}</h1><p>Generated ${new Date().toLocaleString('ro-RO')}</p>
+    <table>${rows.map(([label, id]) => `<tr><td>${label}</td><td>${val(id)}</td></tr>`).join('')}</table></body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 window.mockExport = function(type) {
-  alert(`Export ${type} — funcționalitate demonstrativă, neconectată la un generator real de fișiere.`);
+  if (type === 'CSV') exportIncidentsCSV();
+  else if (type === 'ANITP') exportSummaryCSV();
+  else exportReportPDF();
 };
 
-window.downloadQR = function(idx, code) {
+window.downloadQR = function(idx) {
+  const list = ACCOUNT_ROLE === 'super_admin' ? QRCODES : QRCODES.filter(q => (q.city || '') === ACCOUNT_CITY);
+  const code = list[idx] ? list[idx].code : 'code';
   const el = document.getElementById(`qrimg-${idx}`);
   const img = el && (el.querySelector('img') || el.querySelector('canvas'));
   if (!img) { alert('QR not ready'); return; }
   const a = document.createElement('a');
   a.href = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
-  a.download = `SafeOut-QR-${code}.png`;
+  a.download = `SafeOut-QR-${code.replace(/[^\w-]/g, '_')}.png`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
 // Inițializare aplicație
 document.addEventListener('DOMContentLoaded', () => {
-    if (!checkAccessGate()) { showGateBlock(); return; }
-    const p = document.getElementById('loginPass');
-    if (p) p.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    // Accesul e protejat de login (doar conturi super_admin), nu de o cheie în URL
+    ['loginEmail', 'loginPass'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    });
+
+    // Refresh cu token încă valid => rămânem logați
+    if (session.token) {
+        api.me()
+            .then(user => { if (user.role === 'super_admin') return enterApp(user); session.clear(); })
+            .catch(() => session.clear());
+    }
     
     // Ceas
     const updateClock = () => {

@@ -14,6 +14,12 @@ router.post('/register', authenticate, requireRole('super_admin'), async (req, r
   if (!email || !password || !full_name || !city) {
     return res.status(400).json({ error: 'email, password, full_name and city are mandatory!' });
   }
+  if (role && !['dispatcher', 'super_admin'].includes(role)) {
+    return res.status(400).json({ error: 'role must be dispatcher or super_admin' });
+  }
+  if (String(password).length < 6) {
+    return res.status(400).json({ error: 'password must have at least 6 characters' });
+  }
 
   try {
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -22,7 +28,7 @@ router.post('/register', authenticate, requireRole('super_admin'), async (req, r
       `INSERT INTO dispatchers (email, password_hash, full_name, city, role)
        VALUES ($1, $2, $3, $4, COALESCE($5, 'dispatcher'))
        RETURNING id, email, full_name, city, role, created_at`,
-      [email, password_hash, full_name, city, role]
+      [String(email).trim().toLowerCase(), password_hash, full_name, city, role ?? null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -44,8 +50,8 @@ router.post('/login', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT id, email, password_hash, full_name, city, role FROM dispatchers WHERE email = $1',
-      [email]
+      'SELECT id, email, password_hash, full_name, city, role FROM dispatchers WHERE lower(email) = lower($1)',
+      [String(email).trim()]
     );
     const dispatcher = result.rows[0];
 

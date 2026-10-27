@@ -40,6 +40,18 @@ router.post('/', authenticate, requireRole('super_admin'), asyncHandler(async (r
   res.status(201).json(result.rows[0]);
 }));
 
+// Protejat — activează / dezactivează un cod QR (nu îl ștergem, incidentele vechi îl referă)
+router.patch('/:id', authenticate, requireRole('super_admin'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { active } = req.body;
+  if (typeof active !== 'boolean') {
+    throw new AppError(400, 'Date lipsă', 'active trebuie să fie true sau false');
+  }
+  const result = await pool.query('UPDATE qrcodes SET active = $1 WHERE id = $2 RETURNING *', [active, id]);
+  if (result.rowCount === 0) throw new AppError(404, 'Cod QR inexistent', 'Nu există acest cod QR');
+  res.json(result.rows[0]);
+}));
+
 router.get('/', authenticate, requireRole('super_admin'), asyncHandler(async (req, res) => {
   const result = await pool.query('SELECT * FROM qrcodes ORDER BY created_at DESC');
   res.json(result.rows);

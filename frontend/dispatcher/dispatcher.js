@@ -24,6 +24,7 @@ const S = {
   pending: new Map(),       // id -> status set optimistically, kept until the PATCH settles
   seen: new Set(),          // incident ids already announced (sound)
   audit: [],
+  contacts: null,           // anonymous "Call somebody" uses in the last 24h
   map: null, markers: new Map(), mapFitted: false,
   cityCoords: [47.0722, 21.9217],
 };
@@ -97,10 +98,12 @@ function toDisplay(raw) {
     createdAt: raw.created_at,
     updated: raw.updated_at || '',
     message: raw.victim_message || '',
+    notes: raw.notes || '',
+    evidence: Number(raw.evidence_count) || 0,
     lat: num(raw.latitude), lng: num(raw.longitude),
   };
 }
-const cardHash = (i) => [i.updated, i.status, i.lat, i.lng, i.live, i.message, i.placement, i.venue, i.qr, i.fixed].join('|');
+const cardHash = (i) => [i.updated, i.status, i.lat, i.lng, i.live, i.message, i.notes, i.evidence, i.placement, i.venue, i.qr, i.fixed].join('|');
 
 function applyServerList(rows) {
   const list = rows.filter((r) => r.situation_type !== 'contact').map(toDisplay);
@@ -130,7 +133,10 @@ function cardHTML(inc) {
     (inc.live ? '<div class="inc-meta-item" style="color:#ff5c5c;font-size:10px;font-weight:700">&#128308; LIVE &middot; tracking</div>' : '') + '</div>' +
     (inc.placement ? '<div class="inc-msg" style="border-left-color:var(--amber-border);color:var(--amber)">&#128682; ' + esc(inc.placement) + '</div>' : '') +
     (inc.message ? '<div class="inc-msg">"' + esc(inc.message) + '"</div>' : '') +
-    '<div class="inc-actions">' + actions + '<button class="inc-btn secondary" data-action="notes">Notes</button></div>' +
+    (inc.notes ? '<div class="inc-notes">' + esc(inc.notes) + '</div>' : '') +
+    '<div class="inc-actions">' + actions + '<button class="inc-btn secondary" data-action="notes">Notes</button>' +
+    (inc.evidence ? '<button class="inc-btn secondary" data-action="evidence">&#128206; Evidence (' + inc.evidence + ')</button>' : '') + '</div>' +
+    '<div class="evidence-box" data-local="evidence"></div>' +
     '<div class="notes-box" data-local="notes"><textarea class="notes-area" placeholder="Add operational notes..."></textarea>' +
     '<button class="notes-submit" data-action="save-note">Save note</button></div></div>';
 }
@@ -153,7 +159,7 @@ function renderAll() {
   setText('statActive', pending);
   setText('statAck', active.filter((i) => i.status === 'acknowledged').length);
   setText('statTonight', S.incidents.filter((i) => new Date(i.createdAt).getTime() >= dayAgo).length);
-  setText('statContacts', '\u2014');
+  setText('statContacts', S.contacts === null ? '\u2014' : S.contacts);
   setText('notifBadge', pending);
   const title = (pending ? '(' + pending + ') ' : '') + 'SafeOut \u00b7 Dispatch';
   if (document.title !== title) document.title = title;
@@ -165,7 +171,8 @@ function renderActivePage() {
     const list = S.incidents.filter((i) => i.status !== 'resolved' && (S.filter === 'all' || i.type === S.filter));
     patchList($('incidentList'), list, { key: (i) => i.id, hash: cardHash, render: cardHTML, empty: EMPTY('No active incidents. New alerts appear here automatically.') });
   } else if (S.page === 'history' && S.loaded) {
-    const list = S.incidents.filter((i) => i.status === 'resolved');
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    const list = S.incidents.filter((i) => i.status === 'resolved' && new Date(i.createdAt).getTime() >= weekAgo);
     patchList($('historyList'), list, { key: (i) => i.id, hash: cardHash, render: cardHTML, empty: EMPTY('No resolved incidents yet') });
   } else if (S.page === 'map' && S.loaded) {
     renderMap();
@@ -226,11 +233,13 @@ function renderAudit() {
 
 // ---------- polling ----------
 const poller = createPoller(async (signal) => {
-  const [rows, audit] = await Promise.all([
+  const [rows, audit, contacts] = await Promise.all([
     api.listIncidents({ signal }),
     S.page === 'audit' ? api.listAudit({ signal }) : null,
+    api.contactStats({ signal }).catch(() => null),   // optional stat, never breaks the poll
   ]);
   signal.throwIfAborted();
+  if (contacts) S.contacts = contacts.last_24h;
   applyServerList(rows);
   if (audit) { S.audit = audit; renderAudit(); }
 }, {
@@ -286,7 +295,7 @@ function startSession(user) {
 function endSession(msg) {
   poller.stop(); if (stopAgo) { stopAgo(); stopAgo = null; }
   session.clear();
-  S.user = null; S.incidents = []; S.loaded = false; S.audit = []; S.pending.clear(); S.seen.clear();
+  S.user = null; S.incidents = []; S.loaded = false; S.audit = []; S.contacts = null; S.pending.clear(); S.seen.clear();
   S.markers.forEach((m) => m.remove()); S.markers.clear(); S.mapFitted = false;
   ['incidentList', 'historyList', 'mapIncidentList', 'auditLog'].forEach((id) => resetList($(id)));
   document.title = 'SafeOut \u00b7 Dispatch';
@@ -357,7 +366,41 @@ async function saveNote(id, card) {
   try {
     await api.logAction(id, { action_type: 'note_added', note: text });
     ta.value = ''; card.querySelector('.notes-box').classList.remove('open'); toast('Note saved.');
+    poller.refresh();
   } catch (e) { toast(errMsg(e)); }
+}
+
+// Photos / audio captured by the victim's phone. Loaded on demand (they are large data URLs).
+async function toggleEvidence(id, card) {
+  const box = card.querySelector('.evidence-box'); if (!box) return;
+  if (box.classList.contains('open')) { box.classList.remove('open'); return; }
+  box.classList.add('open');
+  box.innerHTML = '<div class="evidence-empty">Loading evidence\u2026</div>';
+  try {
+    const items = await api.listIncidentEvidence(id);
+    const safeUrl = (u) => (/^(data:(image|audio)\/|https?:\/\/|\/uploads\/)/.test(u) ? u : '');
+    box.innerHTML = items.length ? items.map((e) => {
+      const url = safeUrl(e.storage_url);
+      const when = new Date(e.uploaded_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+      if (!url) return '';
+      return e.file_type === 'audio'
+        ? '<div class="evidence-item audio"><audio controls preload="none" src="' + esc(url) + '"></audio><span>' + esc(when) + '</span></div>'
+        : '<a class="evidence-item" href="' + esc(url) + '" data-action="evidence-open" title="Open full size"><img src="' + esc(url) + '" alt="Photo evidence"><span>' + esc(when) + '</span></a>';
+    }).join('') : '<div class="evidence-empty">No evidence uploaded yet</div>';
+  } catch (e) {
+    box.innerHTML = '<div class="evidence-empty">' + esc(errMsg(e)) + '</div>';
+  }
+}
+
+// data: URLs can't be opened as top-level navigations, so show the photo in a new tab ourselves
+function openEvidence(url) {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Allow pop-ups to open the photo.'); return; }
+  const img = win.document.createElement('img');
+  img.src = url; img.style.maxWidth = '100%';
+  win.document.title = 'SafeOut evidence';
+  win.document.body.style.cssText = 'margin:0;background:#111;display:flex;justify-content:center';
+  win.document.body.appendChild(img);
 }
 
 // ---------- settings ----------
@@ -366,23 +409,16 @@ function renderSettings() {
   setText('setEmail', u.email || '\u2014'); setText('setRole', u.role || 'dispatcher');
   const nameInput = $('setName');
   if (nameInput) nameInput.value = u.full_name || '';
-  const cityInput = $('setCity');
-  if (cityInput) {
-    cityInput.value = u.city || '';
-    cityInput.disabled = u.role !== 'super_admin';
-  }
+  setText('setCityVal', u.city || '\u2014');
   const soundInput = $('setSound');
   if (soundInput) soundInput.checked = soundOn();
 }
 
 async function saveProfile() {
   const name = $('setName') ? $('setName').value.trim() : '';
-  const city = $('setCity') ? $('setCity').value.trim() : '';
   if (!name) { toast('Display name cannot be empty.'); return; }
-  const body = { full_name: name };
-  if (S.user.role === 'super_admin' && city && city !== S.user.city) body.city = city;
   try {
-    const updated = await api.patchMe(body);
+    const updated = await api.patchMe({ full_name: name });
     S.user = { ...S.user, ...updated };
     setText('dispatcherName', S.user.full_name);
     setText('dispatcherCity', S.user.role === 'super_admin' ? 'All cities \u00b7 ' + S.user.city : S.user.city + ' \u00b7 Dispatch');
@@ -441,7 +477,8 @@ window.doLogout = doLogout;
 // ---------- event delegation ----------
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]'); if (!el) return;
-  const card = el.closest('[data-key]'); const id = card ? card.dataset.key : null;
+  // data-key is a string, incident ids from the API are numbers
+  const card = el.closest('[data-key]'); const id = card ? Number(card.dataset.key) : null;
   switch (el.dataset.action) {
     case 'login': doLogin(); break;
     case 'logout': endSession(); break;
@@ -453,6 +490,8 @@ document.addEventListener('click', (e) => {
     case 'call112': call112(id); break;
     case 'notes': { const box = card.querySelector('.notes-box'); if (box) { box.classList.toggle('open'); if (box.classList.contains('open')) { const ta = box.querySelector('textarea'); if (ta) ta.focus(); } } break; }
     case 'save-note': saveNote(id, card); break;
+    case 'evidence': toggleEvidence(id, card); break;
+    case 'evidence-open': e.preventDefault(); openEvidence(el.getAttribute('href')); break;
     case 'save-profile': saveProfile(); break;
     case 'change-password': changePassword(); break;
   }
